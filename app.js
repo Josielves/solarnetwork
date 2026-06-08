@@ -1,7 +1,7 @@
 // ─── Config ──────────────────────────────────────────────────────────────────
 // Em produção a API está no mesmo domínio (/api/...); em dev local aponte para
 // o Vercel CLI rodando localmente (vercel dev) ou use um .env com VITE_API_URL.
-const API = "";
+const API = "https://xvzqsusaaccjeewfsnev.supabase.co";
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let leads = [];
