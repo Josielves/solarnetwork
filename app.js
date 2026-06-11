@@ -107,16 +107,34 @@ async function onLogin(user) {
 }
 
 async function loadTenant() {
-  const { data, error } = await sb.from("profiles")
-    .select("*, tenants(*)")
+
+  const { data, error } = await sb
+    .from("profiles")
+    .select(`
+      *,
+      tenants(*)
+    `)
     .eq("id", currentUser.id)
-    .single();
-  if (!error && data) {
-    currentTenant = data.tenants;
-    qs("#userName").textContent  = data.name || currentUser.email.split("@")[0];
-    qs("#userAvatar").textContent = (data.name || "?")[0].toUpperCase();
-    qs("#userPlan").textContent   = currentTenant?.plan || "Free";
+    .maybeSingle();
+
+  if (error || !data) {
+
+    toast("Perfil não encontrado", "error");
+    return;
+
   }
+
+  currentTenant = data.tenants;
+
+  qs("#userName").textContent =
+    data.name || currentUser.email;
+
+  qs("#userAvatar").textContent =
+    (data.name || "U")[0].toUpperCase();
+
+  qs("#userPlan").textContent =
+    currentTenant?.plan || "Free";
+
 }
 
 // ─── Login ───────────────────────────────────────────────────────────────────
@@ -195,6 +213,8 @@ qs("#btnSignup").addEventListener("click", async () => {
 // ─── Logout ──────────────────────────────────────────────────────────────────
 qs("#btnLogout").addEventListener("click", async () => {
   await sb.auth.signOut();
+
+location.reload();
 });
 
 // ─── Auth tabs ───────────────────────────────────────────────────────────────
@@ -294,6 +314,8 @@ function renderDashboard() {
 
   // Chart — leads por mês (simulado para MVP)
   const ctx = qs("#chartLeads");
+
+if (!ctx) return;
   if (chartInstance) chartInstance.destroy();
   const isDark = document.documentElement.dataset.theme === "dark";
   const gridColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
@@ -518,7 +540,12 @@ qs("#saveLeadBtn").addEventListener("click", async () => {
   const city  = qs("#leadCity").value.trim();
   const state = qs("#leadState").value.trim().toUpperCase();
   const power = parseFloat(qs("#leadPower").value);
-  if (!name || !city || !state || !power) {
+  if (
+ !name ||
+ !city ||
+ !state ||
+ isNaN(power)
+) {
     toast("Preencha os campos obrigatórios.", "error"); return;
   }
 
@@ -610,4 +637,14 @@ qs("#publishKitBtn").addEventListener("click", () => {
 document.addEventListener("DOMContentLoaded", () => {
   lucide.createIcons();
   initAuth();
+  window.addEventListener("error", (e) => {
+
+  console.error(e);
+
+  toast(
+    "Erro inesperado. Veja o console.",
+    "error"
+  );
+
+});
 });
