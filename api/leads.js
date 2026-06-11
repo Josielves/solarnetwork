@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "POST") {
-  const { name, city, state, power, type, note } = req.body;
+  const { name, city, state, power, type, note, value_brl, contact_name, contact_phone } = req.body;
 
   console.log("BODY RECEBIDO:", req.body);
 
@@ -32,14 +32,18 @@ export default async function handler(req, res) {
   const { data, error } = await supabase
     .from("leads")
     .insert([
-      {
-        name,
-        city,
-        state: state.toUpperCase(),
-        power: Number(power),
-        type: type || "Novo cadastro",
-        note: note || ""
-      }
+      // DEPOIS
+{
+  name,
+  city,
+  state: state.toUpperCase(),
+  power: Number(power),
+  type: type || "Novo cadastro",
+  note: note || "",
+  value_brl: value_brl ? Number(value_brl) : null,
+  contact_name: contact_name || "",
+  contact_phone: contact_phone || ""
+}
     ])
     .select()
     .single();
