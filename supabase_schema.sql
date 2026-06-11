@@ -184,3 +184,70 @@ values
   ('00000000-0000-0000-0000-000000000001','Avaliação registrada','SolPrime recebeu 5 estrelas de um cliente final.','rating'),
   ('00000000-0000-0000-0000-000000000001','Parceria iniciada','Nexo Solar aceitou cotar projeto para Alfa FV.','partner')
 on conflict do nothing;
+<<<<<<< HEAD
+=======
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- iSolar v3 — Adições: WhatsApp Sessions + Stripe
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- WhatsApp sessions por tenant
+create table if not exists whatsapp_sessions (
+  id           uuid primary key default gen_random_uuid(),
+  tenant_id    uuid references tenants(id) on delete cascade unique,
+  status       text not null default 'disconnected'
+                 check (status in ('disconnected','connecting','connected','banned')),
+  phone        text,
+  qr_code      text,
+  session_data text, -- JSON serializado do creds.json do Baileys
+  connected_at timestamptz,
+  updated_at   timestamptz default now()
+);
+
+-- Mensagens WhatsApp
+create table if not exists whatsapp_messages (
+  id           uuid primary key default gen_random_uuid(),
+  tenant_id    uuid references tenants(id) on delete cascade,
+  lead_id      uuid references leads(id),
+  direction    text not null check (direction in ('in','out')),
+  from_jid     text,
+  to_jid       text,
+  body         text,
+  media_url    text,
+  status       text default 'sent',
+  wa_msg_id    text,
+  created_at   timestamptz default now()
+);
+
+-- Stripe: produtos e preços (sincronizados via webhook)
+create table if not exists stripe_products (
+  id           text primary key, -- stripe price_id
+  name         text not null,
+  plan         text not null,
+  price_brl    numeric(10,2),
+  interval     text,
+  active       boolean default true
+);
+
+-- Atualizar subscriptions com stripe_id
+alter table subscriptions add column if not exists stripe_customer_id text;
+alter table subscriptions add column if not exists stripe_price_id    text;
+alter table subscriptions add column if not exists cancel_at_period_end boolean default false;
+
+-- RLS para novas tabelas
+alter table whatsapp_sessions  enable row level security;
+alter table whatsapp_messages  enable row level security;
+alter table stripe_products    enable row level security;
+
+create policy "wa_sessions: own"  on whatsapp_sessions for all using (tenant_id = auth_tenant_id());
+create policy "wa_messages: own"  on whatsapp_messages for all using (tenant_id = auth_tenant_id());
+create policy "stripe_products: read" on stripe_products for select using (true);
+
+-- Seed Stripe products
+insert into stripe_products (id, name, plan, price_brl, interval, active) values
+  ('price_free',       'Free',          'free',       0,   'month', true),
+  ('price_starter',    'Starter',       'starter',    97,  'month', true),
+  ('price_pro',        'Integrator Pro','pro',        297, 'month', true),
+  ('price_enterprise', 'Enterprise',    'enterprise', 897, 'month', true)
+on conflict do nothing;
+>>>>>>> edd916a (Atualização do sistema)
