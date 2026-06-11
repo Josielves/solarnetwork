@@ -1,0 +1,12 @@
+{
+  "name": "isolar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.4"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
