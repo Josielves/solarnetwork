@@ -14,7 +14,10 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+  console.error("SUPABASE ERROR:", error);
+  return res.status(500).json(error);
+}
     return res.status(200).json(data);
   }
 
@@ -27,7 +30,10 @@ export default async function handler(req, res) {
       .insert([{ name, city, state: state.toUpperCase(), power: Number(power), type: type || "Novo cadastro", note: note || "" }])
       .select()
       .single();
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+  console.error("SUPABASE ERROR:", error);
+  return res.status(500).json(error);
+}
     return res.status(201).json(data);
   }
 
