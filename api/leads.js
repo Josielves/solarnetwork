@@ -22,20 +22,32 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "POST") {
-    const { name, city, state, power, type, note } = req.body;
-    if (!name || !city || !state || !power)
-      return res.status(400).json({ error: "Campos obrigatórios ausentes." });
-    const { data, error } = await supabase
-      .from("leads")
-      .insert([{ name, city, state: state.toUpperCase(), power: Number(power), type: type || "Novo cadastro", note: note || "" }])
-      .select()
-      .single();
-    if (error) {
-  console.error("SUPABASE ERROR:", error);
-  return res.status(500).json(error);
-}
-    return res.status(201).json(data);
-  }
+  const { name, city, state, power, type, note } = req.body;
 
-  res.status(405).json({ error: "Método não permitido." });
+  console.log("BODY RECEBIDO:", req.body);
+
+  if (!name || !city || !state || !power)
+    return res.status(400).json({ error: "Campos obrigatórios ausentes." });
+
+  const { data, error } = await supabase
+    .from("leads")
+    .insert([
+      {
+        name,
+        city,
+        state: state.toUpperCase(),
+        power: Number(power),
+        type: type || "Novo cadastro",
+        note: note || ""
+      }
+    ])
+    .select()
+    .single();
+
+  console.log("DATA:", data);
+  console.log("ERROR:", error);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  return res.status(201).json(data);
 }
