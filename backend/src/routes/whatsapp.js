@@ -77,8 +77,16 @@ router.post('/send', requireAuth, async (req, res) => {
     await sendMessage(req.tenantId, to, body);
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+  console.error('WhatsApp connect error:', err);
+
+  if (!res.headersSent) {
+    return res.status(500).json({
+      error: err.message
+    });
   }
+
+  res.end();
+}
 });
 
 // GET /api/whatsapp/messages
