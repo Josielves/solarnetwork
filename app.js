@@ -4,7 +4,7 @@
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const SUPABASE_URL      = "https://xvzqsusaaccjeewfsnev.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2enFzdXNhYWNjamVld2ZzbmV2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDkzNTA4NiwiZXhwIjoyMDk2NTExMDg2fQ.oycjFk28DgIsUezX0g8jkO6Ul4N84lSM9cY8FLoNoxY"; // ← sua anon key
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2enFzdXNhYWNjamVld2ZzbmV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MzUwODYsImV4cCI6MjA5NjUxMTA4Nn0.0zE7JYpnLneRcRJYm6hCI9rmspyFXV0CjKBrb3s__6E"; // ← sua anon key
 const BACKEND_URL       = "solarnetwork-production.up.railway.app"; // ← ex: https://isolar-backend.up.railway.app
 
 const { createClient } = supabase;
