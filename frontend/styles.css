@@ -61,6 +61,7 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden; /* evita scroll horizontal */
 }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; border: none; background: none; }
@@ -215,6 +216,7 @@ p { color: var(--ink2); }
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
   min-height: 100vh;
+  /* NÃO usar overflow:hidden aqui — quebra position:sticky do sidebar e topbar */
   transition: grid-template-columns var(--transition);
 }
 .app-shell.collapsed { --sidebar-w: 64px; }
@@ -227,8 +229,7 @@ p { color: var(--ink2); }
   overflow: hidden;
   transition: width var(--transition);
   width: var(--sidebar-w);
-  /* z-index baixo para não interferir com dialog top-layer */
-  z-index: 10;
+  /* Sem z-index no desktop — fica no grid flow normalmente */
 }
 
 .sidebar-top {
@@ -306,7 +307,8 @@ p { color: var(--ink2); }
   height: var(--topbar-h); padding: 0 24px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   background: var(--panel); border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 50;
+  position: sticky; top: 0; z-index: 40;
+  width: 100%;
 }
 .topbar-left { display: flex; align-items: center; gap: 12px; }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
@@ -692,8 +694,8 @@ p { color: var(--ink2); }
    RESPONSIVE
    ═══════════════════════════════════════════════════════════════ */
 
-/* ─── Tablet grande (≤1200px) ───────────────────────────────── */
-@media (max-width: 1200px) {
+/* ─── Tablet grande (≤1024px) ───────────────────────────────── */
+@media (max-width: 1024px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .dash-grid { grid-template-columns: 1fr; }
   .panel-chart,.panel-funnel,.panel-activity,.panel-kits { grid-column: 1; grid-row: auto; }
