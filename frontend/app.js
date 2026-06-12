@@ -427,7 +427,24 @@ function renderMarketplace() {
   const kits = appData.kits.filter(k =>
     `${k.title} ${k.distributor} ${k.city} ${k.state}`.toLowerCase().includes(search)
   );
-  qs("#kitGrid").innerHTML = kits.map(k => `
+
+  // Botão "Publicar kit" só visível para distribuidores
+  const publishBtn = qs("#publishKitBtn");
+  if (publishBtn) {
+    const isDistributor = currentTenant?.role?.toLowerCase().includes("distribuidor") ||
+                          currentProfile?.is_admin === true;
+    publishBtn.style.display = isDistributor ? "" : "none";
+  }
+
+  qs("#kitGrid").innerHTML = kits.map(k => {
+    const isOwn = k.tenant_id && k.tenant_id === currentTenant?.id;
+    const actionBtn = isOwn
+      ? `<button class="btn-ghost" style="width:100%;justify-content:center" disabled>Seu kit</button>`
+      : `<button class="btn-primary" style="width:100%;justify-content:center"
+           onclick="openChatWithKit(${JSON.stringify(k).replace(/"/g, "&quot;")})">
+           <i data-lucide="shopping-cart"></i> Solicitar compra
+         </button>`;
+    return `
     <article class="kit-card">
       <div>
         <div class="kit-distributor">${k.distributor}</div>
@@ -437,9 +454,93 @@ function renderMarketplace() {
       <div class="kit-meta">${k.city}/${k.state}</div>
       <div class="kit-stock">${k.stock}</div>
       <div class="tag-row">${(k.items||[]).map(i=>`<span class="tag">${i}</span>`).join("")}</div>
-      <button class="btn-primary" style="width:100%;justify-content:center">Solicitar compra</button>
-    </article>`).join("") || `<p style="color:var(--muted)">Nenhum kit.</p>`;
+      ${actionBtn}
+    </article>`;
+  }).join("") || `<p style="color:var(--muted)">Nenhum kit.</p>`;
+
+  lucide.createIcons();
 }
+
+// Abre (ou cria) conversa com o distribuidor do kit e envia mensagem de interesse
+window.openChatWithKit = async (kit) => {
+  // Encontra o tenant distribuidor pelo tenant_id do kit ou pelo nome
+  let distributorTenant = kit.tenant_id
+    ? appData.tenants.find(t => t.id === kit.tenant_id)
+    : appData.tenants.find(t => t.name === kit.distributor);
+
+  if (!distributorTenant) {
+    toast("Distribuidor não encontrado na rede.", "error");
+    return;
+  }
+
+  if (distributorTenant.id === currentTenant?.id) {
+    toast("Este kit é seu.", "error");
+    return;
+  }
+
+  showLoading(true);
+
+  try {
+    // Verifica se já existe conversa
+    const { data: existingRows } = await sb
+      .from("chat_conversations")
+      .select("id, last_message, last_at, tenant_a, tenant_b")
+      .or(
+        `and(tenant_a.eq.${currentTenant.id},tenant_b.eq.${distributorTenant.id}),` +
+        `and(tenant_a.eq.${distributorTenant.id},tenant_b.eq.${currentTenant.id})`
+      )
+      .limit(1);
+
+    let convId;
+
+    if (existingRows?.length) {
+      const raw = existingRows[0];
+      const existing = {
+        ...raw,
+        tenant_a: raw.tenant_a === currentTenant.id ? currentTenant : distributorTenant,
+        tenant_b: raw.tenant_b === currentTenant.id ? currentTenant : distributorTenant,
+      };
+      if (!conversations.find(c => c.id === existing.id)) conversations.unshift(existing);
+      convId = existing.id;
+    } else {
+      // Cria nova conversa
+      const { data, error } = await sb.from("chat_conversations").insert({
+        tenant_a: currentTenant.id,
+        tenant_b: distributorTenant.id,
+        last_message: null,
+      }).select("id, last_message, last_at, tenant_a, tenant_b").single();
+
+      if (error) throw error;
+
+      const newConv = { ...data, tenant_a: currentTenant, tenant_b: distributorTenant };
+      conversations.unshift(newConv);
+      convId = newConv.id;
+    }
+
+    // Navega para o chat e abre a conversa
+    switchView("chat");
+    await loadChat();
+    await openConversation(convId);
+
+    // Monta e envia mensagem de interesse automática
+    const price = kit.price || fmtBrl((kit.price_cents || 0) / 100);
+    const kitMsg = `Olá! Tenho interesse no kit *${kit.title}* (${price}) que vi no Marketplace. Poderia me passar mais detalhes sobre disponibilidade e condições de compra?`;
+
+    const input = qs("#chatInput");
+    if (input) {
+      input.value = kitMsg;
+      input.dispatchEvent(new Event("input")); // auto-resize
+      input.focus();
+    }
+
+    toast(`Chat aberto com ${distributorTenant.name}`);
+  } catch (e) {
+    toast("Erro ao abrir chat: " + e.message, "error");
+    console.error("openChatWithKit:", e);
+  } finally {
+    showLoading(false);
+  }
+};
 
 // ─── WHATSAPP ─────────────────────────────────────────────────────────────────
 async function loadWAStatus() {
@@ -1285,7 +1386,7 @@ qs("#saveKitBtn").addEventListener("click", async () => {
       method: "POST",
       body: { title, distributor, city, state, price_cents: Math.round(price * 100), stock, items },
     });
-    appData.kits.unshift({ ...data, price: fmtBrl(data.price_cents / 100), stock: data.stock + " unidades" });
+    appData.kits.unshift({ ...data, tenant_id: data.tenant_id || currentTenant?.id, price: fmtBrl(data.price_cents / 100), stock: data.stock + " unidades" });
     qs("#kitModal").close();
     ["#kitTitle","#kitDistributor","#kitCity","#kitState","#kitPrice","#kitStock","#kitItems"]
       .forEach(s => qs(s).value = "");
