@@ -393,20 +393,20 @@ function renderNetwork() {
     return (!roleF || t.role === roleF) && (!stateF || t.state === stateF) && (!search || blob.includes(search));
   });
 
-  qs("#profileGrid").innerHTML = list.map(t => {
-    const loc = [t.city, t.state].filter(Boolean).join("/");
-    const tenantJson = JSON.stringify(t).replace(/"/g, "&quot;");
+  const grid = qs("#profileGrid");
+  grid.innerHTML = list.map(t => {
+    const loc   = [t.city, t.state].filter(Boolean).join("/");
     const score = calcMatch(currentTenant, t);
     const matchChip = (score !== null && t.id !== currentTenant?.id)
       ? `<span class="profile-match-chip"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>${score}% match</span>`
       : "";
     return `
-    <article class="profile-card profile-card--clickable" onclick="openProfileModal(${tenantJson})" title="Ver perfil de ${t.name}">
+    <article class="profile-card profile-card--clickable" data-tenant-id="${t.id}" title="Ver perfil de ${esc(t.name)}">
       <div class="profile-top">
         <span class="avatar">${t.initials || "iS"}</span>
         <div>
-          <div class="profile-name">${t.name}</div>
-          <span class="tag">${t.role}</span>
+          <div class="profile-name">${esc(t.name)}</div>
+          <span class="tag">${esc(t.role)}</span>
         </div>
       </div>
       <div class="rating">
@@ -414,9 +414,10 @@ function renderNetwork() {
         <span class="rating-val">${Number(t.rating||0).toFixed(1)}</span>
         ${matchChip}
       </div>
-      ${loc ? `<p style="font-size:12px;margin:4px 0;color:var(--muted);display:flex;align-items:center;gap:4px"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${loc}</p>` : ""}
-      ${t.comment ? `<div class="comment-box">${t.comment}</div>` : ""}
-      <div class="tag-row">${(t.permissions||[]).map(p=>`<span class="tag">${p}</span>`).join("")}</div>
+      ${loc ? `<p style="font-size:12px;margin:4px 0;color:var(--muted);display:flex;align-items:center;gap:4px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${esc(loc)}</p>` : ""}
+      ${t.comment ? `<div class="comment-box">${esc(t.comment)}</div>` : ""}
+      <div class="tag-row">${(t.permissions||[]).map(p=>`<span class="tag">${esc(p)}</span>`).join("")}</div>
       <div style="margin-top:auto;padding-top:8px;font-size:12px;color:var(--leaf);font-weight:600;display:flex;align-items:center;gap:4px">
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         Ver perfil completo
@@ -424,10 +425,23 @@ function renderNetwork() {
     </article>`;
   }).join("") || `<p style="color:var(--muted)">Nenhuma empresa encontrada.</p>`;
 
-  const rf = qs("#networkRoleFilter");
+  // Attach click handlers via JS (avoids inline JSON / escaping issues)
+  grid.querySelectorAll(".profile-card--clickable").forEach(card => {
+    card.addEventListener("click", () => {
+      const tenant = appData.tenants.find(t => t.id === card.dataset.tenantId);
+      if (tenant) openProfileModal(tenant);
+    });
+  });
+
+  const rf  = qs("#networkRoleFilter");
   const sf2 = qs("#networkStateFilter");
-  if (rf && rf.options.length <= 1) [...new Set(appData.tenants.map(t=>t.role))].sort().forEach(r=>rf.add(new Option(r,r)));
+  if (rf  && rf.options.length  <= 1) [...new Set(appData.tenants.map(t=>t.role).filter(Boolean))].sort().forEach(r=>rf.add(new Option(r,r)));
   if (sf2 && sf2.options.length <= 1) [...new Set(appData.tenants.map(t=>t.state).filter(Boolean))].sort().forEach(s=>sf2.add(new Option(s,s)));
+}
+
+// HTML-escape helper used in renderNetwork
+function esc(s) {
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
 // ─── MARKETPLACE ──────────────────────────────────────────────────────────────
@@ -1514,68 +1528,78 @@ function renderReputation(tenant) {
   // Score global
   let globalScore = Number(tenant.rating || 0);
   if (reviews.length) {
-    const avg = reviews.reduce((s, r) => s + r.overall, 0) / reviews.length;
-    globalScore = avg;
+    globalScore = reviews.reduce((s, r) => s + r.overall, 0) / reviews.length;
   }
   qs("#repScore").textContent = globalScore ? globalScore.toFixed(1) : "–";
   qs("#repStars").textContent = globalScore ? stars(globalScore) : "☆☆☆☆☆";
-  qs("#repCount").textContent = reviews.length ? `${reviews.length} avaliação${reviews.length>1?"ões":""}` : "Sem avaliações";
+  qs("#repCount").textContent = reviews.length
+    ? `${reviews.length} avaliação${reviews.length > 1 ? "ões" : ""}`
+    : "Sem avaliações";
 
   // Barras por critério
   const criteriaScores = {};
   REP_CRITERIA.forEach(c => {
     const vals = reviews.map(r => r.criteria?.[c] || 0).filter(Boolean);
-    criteriaScores[c] = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+    criteriaScores[c] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
   });
   qs("#repBars").innerHTML = REP_CRITERIA.map(c => {
     const v = criteriaScores[c];
     return `<div class="rep-bar-row">
       <span class="rep-bar-label">${c}</span>
-      <div class="rep-bar-wrap"><div class="rep-bar-fill" style="width:${v*20}%"></div></div>
+      <div class="rep-bar-wrap"><div class="rep-bar-fill" style="width:${v * 20}%"></div></div>
       <span class="rep-bar-val">${v ? v.toFixed(1) : "–"}</span>
     </div>`;
   }).join("");
 
   // Lista de reviews
-  qs("#repReviewList").innerHTML = reviews.length ? reviews.slice().reverse().map(r => `
-    <div class="rep-review-item">
-      <div class="rep-review-header">
-        <span class="rep-review-author">${r.author || "Parceiro"}</span>
-        <span class="rep-review-date">${r.date || ""}</span>
-        <span class="rep-review-stars">${stars(r.overall)}</span>
-      </div>
-      ${r.text ? `<p class="rep-review-text">${r.text}</p>` : ""}
-      <div class="rep-review-criteria">
-        ${REP_CRITERIA.map(c => r.criteria?.[c] ? `<span class="rep-crit-tag">${c}: ${r.criteria[c]}★</span>` : "").join("")}
-      </div>
-    </div>`).join("") : `<p style="color:var(--muted);font-size:13px;padding:8px 0">Ainda sem avaliações para este parceiro.</p>`;
+  qs("#repReviewList").innerHTML = reviews.length
+    ? reviews.slice().reverse().map(r => `
+      <div class="rep-review-item">
+        <div class="rep-review-header">
+          <span class="rep-review-author">${esc(r.author || "Parceiro")}</span>
+          <span class="rep-review-date">${r.date || ""}</span>
+          <span class="rep-review-stars">${stars(r.overall)}</span>
+        </div>
+        ${r.text ? `<p class="rep-review-text">${esc(r.text)}</p>` : ""}
+        <div class="rep-review-criteria">
+          ${REP_CRITERIA.map(c => r.criteria?.[c] ? `<span class="rep-crit-tag">${c}: ${r.criteria[c]}★</span>` : "").join("")}
+        </div>
+      </div>`).join("")
+    : `<p style="color:var(--muted);font-size:13px;padding:8px 0">Ainda sem avaliações para este parceiro.</p>`;
 
-  // Star pickers para avaliação
+  // ── Star pickers (recriar HTML a cada render evita listeners duplicados) ──
   const criteriaState = {};
   REP_CRITERIA.forEach(c => { criteriaState[c] = 0; });
 
-  qs("#repCriteriaInputs").innerHTML = REP_CRITERIA.map(c => `
+  const inputsEl = qs("#repCriteriaInputs");
+  inputsEl.innerHTML = REP_CRITERIA.map(c => `
     <div class="rep-crit-row">
       <label>${c}</label>
       <div class="star-picker" data-crit="${c}">
-        ${[1,2,3,4,5].map(n => `<button type="button" data-val="${n}">★</button>`).join("")}
+        ${[1, 2, 3, 4, 5].map(n => `<button type="button" data-val="${n}">★</button>`).join("")}
       </div>
     </div>`).join("");
 
-  qsa(".star-picker").forEach(picker => {
+  // Escopo restrito ao container — sem qsa global
+  inputsEl.querySelectorAll(".star-picker").forEach(picker => {
     const crit = picker.dataset.crit;
     picker.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", () => {
         criteriaState[crit] = Number(btn.dataset.val);
-        picker.querySelectorAll("button").forEach(b => b.classList.toggle("lit", Number(b.dataset.val) <= criteriaState[crit]));
+        picker.querySelectorAll("button").forEach(b =>
+          b.classList.toggle("lit", Number(b.dataset.val) <= criteriaState[crit]));
       });
     });
   });
 
-  qs("#repSubmitBtn").onclick = () => {
+  // Substituir o botão por um clone para remover qualquer listener anterior
+  const oldBtn = qs("#repSubmitBtn");
+  const newBtn = oldBtn.cloneNode(true);
+  oldBtn.replaceWith(newBtn);
+  newBtn.addEventListener("click", () => {
     const overall = Object.values(criteriaState).filter(Boolean);
     if (!overall.length) { toast("Selecione ao menos uma estrela.", "error"); return; }
-    const avg = overall.reduce((a,b)=>a+b,0)/overall.length;
+    const avg = overall.reduce((a, b) => a + b, 0) / overall.length;
     const review = {
       author: currentProfile?.name || currentUser?.email?.split("@")[0] || "Você",
       date: new Date().toLocaleDateString("pt-BR"),
@@ -1586,137 +1610,168 @@ function renderReputation(tenant) {
     if (!appData.reputation[tenant.id]) appData.reputation[tenant.id] = { reviews: [] };
     appData.reputation[tenant.id].reviews.push(review);
     qs("#repComment").value = "";
-    REP_CRITERIA.forEach(c => { criteriaState[c]=0; });
-    qsa(".star-picker button").forEach(b => b.classList.remove("lit"));
     renderReputation(tenant);
     toast("Avaliação enviada!");
-  };
+  });
 }
 
 // ─── Renderiza aba Feed ────────────────────────────────────────────────────────
 function renderFeed(tenant) {
   const isOwn = tenant.id === currentTenant?.id;
-  const feedWrap = qs("#feedPublishWrap");
-  feedWrap.style.display = isOwn ? "block" : "none";
+  qs("#feedPublishWrap").style.display = isOwn ? "block" : "none";
 
-  // Tipo selecionado
-  let selectedType = "obra";
-  qsa(".fct").forEach(btn => {
-    btn.addEventListener("click", () => {
-      selectedType = btn.dataset.fct;
-      qsa(".fct").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
+  if (isOwn) {
+    // Tipo selecionado — recriar botões com cloneNode para limpar listeners antigos
+    let selectedType = "obra";
+    const typeContainer = qs("#feedComposeType");
+    const freshTypes = typeContainer.cloneNode(true);
+    typeContainer.replaceWith(freshTypes);
+    freshTypes.querySelectorAll(".fct").forEach(btn => {
+      btn.addEventListener("click", () => {
+        selectedType = btn.dataset.fct;
+        freshTypes.querySelectorAll(".fct").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
     });
-  });
 
-  qs("#feedPublishBtn").onclick = () => {
-    const text = qs("#feedText").value.trim();
-    if (!text) { toast("Escreva algo antes de publicar.", "error"); return; }
-    const post = {
-      id: Date.now(),
-      type: selectedType,
-      text,
-      author: currentProfile?.name || "Você",
-      when: "agora mesmo",
-      likes: 0,
-    };
-    if (!appData.feed[tenant.id]) appData.feed[tenant.id] = [];
-    appData.feed[tenant.id].unshift(post);
-    qs("#feedText").value = "";
-    renderFeedList(tenant);
-    toast("Publicado!");
-  };
+    // Botão publicar — clone para remover listener anterior
+    const oldPub = qs("#feedPublishBtn");
+    const newPub = oldPub.cloneNode(true);
+    oldPub.replaceWith(newPub);
+    newPub.addEventListener("click", () => {
+      const text = qs("#feedText").value.trim();
+      if (!text) { toast("Escreva algo antes de publicar.", "error"); return; }
+      if (!appData.feed[tenant.id]) appData.feed[tenant.id] = [];
+      appData.feed[tenant.id].unshift({
+        id: Date.now(),
+        type: selectedType,
+        text,
+        author: currentProfile?.name || "Você",
+        when: "agora mesmo",
+        likes: 0,
+      });
+      qs("#feedText").value = "";
+      renderFeedList(tenant);
+      toast("Publicado!");
+    });
+  }
 
   renderFeedList(tenant);
 }
 
-const feedTypeLabels = { obra:"Obra", dica:"Dica", problema:"Problema", equipamento:"Equipamento" };
+const feedTypeLabels = { obra: "Obra", dica: "Dica", problema: "Problema", equipamento: "Equipamento" };
 
 function renderFeedList(tenant) {
   const posts = appData.feed[tenant.id] || [];
-  const initials = tenant.initials || (tenant.name||"?")[0].toUpperCase();
-  qs("#feedList").innerHTML = posts.length ? posts.map(p => `
-    <div class="feed-post" id="fpost-${p.id}">
-      <div class="feed-post-header">
-        <div class="feed-post-avatar">${initials}</div>
-        <div>
-          <div class="feed-post-author">${p.author}</div>
-          <div class="feed-post-when">${p.when}</div>
+  const initials = tenant.initials || (tenant.name || "?")[0].toUpperCase();
+  const list = qs("#feedList");
+  list.innerHTML = posts.length
+    ? posts.map(p => `
+      <div class="feed-post" data-post-id="${p.id}" data-tenant-id="${tenant.id}">
+        <div class="feed-post-header">
+          <div class="feed-post-avatar">${esc(initials)}</div>
+          <div>
+            <div class="feed-post-author">${esc(p.author)}</div>
+            <div class="feed-post-when">${p.when}</div>
+          </div>
+          <span class="feed-post-type-badge ${p.type}">${feedTypeLabels[p.type] || p.type}</span>
         </div>
-        <span class="feed-post-type-badge ${p.type}">${feedTypeLabels[p.type]||p.type}</span>
-      </div>
-      <p class="feed-post-text">${p.text}</p>
-      <div class="feed-post-actions">
-        <button class="feed-action-btn" onclick="likeFeedPost('${tenant.id}',${p.id})">
-          <i data-lucide="heart"></i> <span id="likes-${p.id}">${p.likes||0}</span>
-        </button>
-        <button class="feed-action-btn">
-          <i data-lucide="message-circle"></i> Comentar
-        </button>
-        <button class="feed-action-btn">
-          <i data-lucide="share-2"></i> Compartilhar
-        </button>
-      </div>
-    </div>`).join("") :
-    `<div class="feed-empty">
-      <i data-lucide="rss"></i>
-      <p>Nenhuma publicação ainda.</p>
-      ${tenant.id === currentTenant?.id ? "<small>Seja o primeiro a publicar!</small>" : ""}
-    </div>`;
+        <p class="feed-post-text">${esc(p.text)}</p>
+        <div class="feed-post-actions">
+          <button class="feed-action-btn like-btn">
+            <i data-lucide="heart"></i> <span class="like-count">${p.likes || 0}</span>
+          </button>
+          <button class="feed-action-btn">
+            <i data-lucide="message-circle"></i> Comentar
+          </button>
+          <button class="feed-action-btn">
+            <i data-lucide="share-2"></i> Compartilhar
+          </button>
+        </div>
+      </div>`).join("")
+    : `<div class="feed-empty">
+        <i data-lucide="rss"></i>
+        <p>Nenhuma publicação ainda.</p>
+        ${tenant.id === currentTenant?.id ? "<small>Seja o primeiro a publicar!</small>" : ""}
+      </div>`;
+
+  // Like buttons via JS delegation
+  list.querySelectorAll(".like-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const postEl = btn.closest(".feed-post");
+      const postId = Number(postEl.dataset.postId);
+      const tId    = postEl.dataset.tenantId;
+      const post   = (appData.feed[tId] || []).find(p => p.id === postId);
+      if (post) {
+        post.likes = (post.likes || 0) + 1;
+        btn.querySelector(".like-count").textContent = post.likes;
+        btn.style.color = "var(--danger)";
+      }
+    });
+  });
+
   lucide.createIcons();
 }
 
-window.likeFeedPost = (tenantId, postId) => {
-  const post = (appData.feed[tenantId]||[]).find(p => p.id === postId);
-  if (post) { post.likes = (post.likes||0) + 1; qs(`#likes-${postId}`).textContent = post.likes; }
-};
-
 // ─── Modal principal ───────────────────────────────────────────────────────────
 window.openProfileModal = (tenant) => {
-  // Identidade
-  qs("#profileModalInitials").textContent = tenant.initials || (tenant.name||"?")[0].toUpperCase();
-  qs("#profileModalName").textContent     = tenant.name || "–";
+  // ── Identidade ──
+  qs("#profileModalInitials").textContent  = tenant.initials || (tenant.name || "?")[0].toUpperCase();
+  qs("#profileModalName").textContent      = tenant.name || "–";
   qs("#profileModalRoleBadge").textContent = tenant.role || "";
-  const locEl = qs("#profileModalLocationText");
-  if (locEl) locEl.textContent = [tenant.city, tenant.state].filter(Boolean).join("/");
-  qs("#profileModalLocation").style.display = (tenant.city||tenant.state) ? "flex" : "none";
+
+  // Localização
+  const locWrapper = qs("#profileModalLocation");
+  const locText    = qs("#profileModalLocationText");
+  const locVal     = [tenant.city, tenant.state].filter(Boolean).join("/");
+  if (locWrapper) locWrapper.style.display = locVal ? "flex" : "none";
+  if (locText)    locText.textContent = locVal;
 
   // ── Dados Comerciais ──
-  const show = (id, val) => { const el = qs(id); if (el) { el.style.display = val ? "" : "none"; } };
-  show("#piCnpj",    tenant.cnpj);    if (tenant.cnpj)    qs("#profileModalCnpj").textContent    = formatCnpj(tenant.cnpj);
-  show("#piRazao",   tenant.razao);   if (tenant.razao)   qs("#profileModalRazao").textContent   = tenant.razao;
-  show("#piColabs",  tenant.colabs);  if (tenant.colabs)  qs("#profileModalColabs").textContent  = tenant.colabs + " colaboradores";
-  show("#piFounded", tenant.founded); if (tenant.founded) qs("#profileModalFounded").textContent = "Desde " + tenant.founded;
+  const showField = (wrapperId, val) => { const el = qs(wrapperId); if (el) el.style.display = val ? "" : "none"; };
+  showField("#piCnpj",    tenant.cnpj);
+  showField("#piRazao",   tenant.razao);
+  showField("#piColabs",  tenant.colabs);
+  showField("#piFounded", tenant.founded);
+  if (tenant.cnpj)    qs("#profileModalCnpj").textContent    = formatCnpj(tenant.cnpj);
+  if (tenant.razao)   qs("#profileModalRazao").textContent   = tenant.razao;
+  if (tenant.colabs)  qs("#profileModalColabs").textContent  = tenant.colabs + " colaboradores";
+  if (tenant.founded) qs("#profileModalFounded").textContent = "Desde " + tenant.founded;
 
-  // Links
+  // Oculta grade se sem dados comerciais
+  const infoGrid = qs("#profileModalCnpj")?.closest(".profile-info-grid");
+  if (infoGrid) infoGrid.style.display = (tenant.cnpj || tenant.razao || tenant.colabs || tenant.founded) ? "" : "none";
+
+  // ── Links ──
   const links = [];
-  if (tenant.site)      links.push({ icon:"globe",     label:"Site",       url: ensureHttp(tenant.site) });
-  if (tenant.instagram) links.push({ icon:"instagram",  label:"Instagram",  url: "https://instagram.com/" + tenant.instagram.replace("@","") });
-  if (tenant.linkedin)  links.push({ icon:"linkedin",   label:"LinkedIn",   url: ensureHttp(tenant.linkedin) });
-  if (tenant.facebook)  links.push({ icon:"facebook",   label:"Facebook",   url: ensureHttp(tenant.facebook) });
+  if (tenant.site)      links.push({ icon: "globe",     label: "Site",      url: ensureHttp(tenant.site) });
+  if (tenant.instagram) links.push({ icon: "instagram", label: "Instagram", url: "https://instagram.com/" + tenant.instagram.replace("@", "") });
+  if (tenant.linkedin)  links.push({ icon: "linkedin",  label: "LinkedIn",  url: ensureHttp(tenant.linkedin) });
+  if (tenant.facebook)  links.push({ icon: "facebook",  label: "Facebook",  url: ensureHttp(tenant.facebook) });
   qs("#profileModalLinks").innerHTML = links.map(l =>
     `<a class="profile-link-btn" href="${l.url}" target="_blank" rel="noopener">
-      <i data-lucide="${l.icon}"></i> ${l.label}
-    </a>`).join("") || "";
+       <i data-lucide="${l.icon}"></i> ${l.label}
+     </a>`).join("");
 
-  // Apresentação
+  // ── Apresentação ──
   qs("#profileModalCommentWrap").style.display = tenant.comment ? "" : "none";
-  qs("#profileModalComment").textContent = tenant.comment || "";
+  if (tenant.comment) qs("#profileModalComment").textContent = tenant.comment;
 
-  // Tags
+  // ── Tags ──
   const tags = tenant.permissions || [];
   qs("#profileModalTagsWrap").style.display = tags.length ? "" : "none";
-  qs("#profileModalTags").innerHTML = tags.map(p => `<span class="tag">${p}</span>`).join("");
+  qs("#profileModalTags").innerHTML = tags.map(p => `<span class="tag">${esc(p)}</span>`).join("");
 
   // ── Match ──
-  const score = calcMatch(currentTenant, tenant);
+  const score      = calcMatch(currentTenant, tenant);
   const matchBadge = qs("#profileModalMatch");
-  if (score !== null && tenant.id !== currentTenant?.id) {
+  const isSelf     = tenant.id && tenant.id === currentTenant?.id;
+  if (score !== null && !isSelf) {
     matchBadge.style.display = "flex";
     qs("#profileModalMatchPct").textContent = score + "%";
     const arc = qs("#matchArc");
-    if (arc) { const dash = (score/100)*94; arc.setAttribute("stroke-dasharray", `${dash} 94`); }
-    const factors = matchFactors(currentTenant, tenant);
+    if (arc) arc.setAttribute("stroke-dasharray", `${(score / 100) * 94} 94`);
+    const factors    = matchFactors(currentTenant, tenant);
     const detailWrap = qs("#profileModalMatchDetail");
     detailWrap.style.display = factors.length ? "" : "none";
     qs("#profileModalMatchFactors").innerHTML = factors.map(f =>
@@ -1726,30 +1781,38 @@ window.openProfileModal = (tenant) => {
     qs("#profileModalMatchDetail").style.display = "none";
   }
 
-  // ── Tabs ── reset para aba "sobre"
-  qsa(".pmt").forEach(b => b.classList.toggle("active", b.dataset.pmt === "sobre"));
-  qsa(".pmt-panel").forEach(p => p.classList.toggle("active", p.id === "pmtSobre"));
+  // ── Tabs — reset + re-bind sem acúmulo de listeners ──
+  const modal = qs("#profileModal");
+  const activateTab = (tabName) => {
+    modal.querySelectorAll(".pmt").forEach(b => b.classList.toggle("active", b.dataset.pmt === tabName));
+    modal.querySelectorAll(".pmt-panel").forEach(p => p.classList.toggle("active", p.id === "pmt" + cap(tabName)));
+  };
+  activateTab("sobre");
 
-  qsa(".pmt").forEach(btn => {
-    btn.onclick = () => {
-      qsa(".pmt").forEach(b => b.classList.remove("active"));
-      qsa(".pmt-panel").forEach(p => p.classList.remove("active"));
-      btn.classList.add("active");
-      qs(`#pmt${cap(btn.dataset.pmt)}`).classList.add("active");
+  modal.querySelectorAll(".pmt").forEach(btn => {
+    const fresh = btn.cloneNode(true);
+    btn.replaceWith(fresh);
+  });
+  modal.querySelectorAll(".pmt").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activateTab(btn.dataset.pmt);
       if (btn.dataset.pmt === "reputacao") renderReputation(tenant);
       if (btn.dataset.pmt === "feed")      renderFeed(tenant);
-    };
+    });
   });
 
   // ── Chat btn ──
-  qs("#profileModalChatBtn").onclick = () => {
+  const chatBtn = qs("#profileModalChatBtn");
+  const freshChat = chatBtn.cloneNode(true);
+  chatBtn.replaceWith(freshChat);
+  freshChat.addEventListener("click", () => {
     qs("#profileModal").close();
     selectedTenantId = tenant.id;
     switchView("chat");
     loadChat();
-  };
+  });
 
-  qs("#profileModal").showModal();
+  modal.showModal();
   lucide.createIcons();
 };
 
