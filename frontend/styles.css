@@ -837,6 +837,29 @@ p { color: var(--ink2); }
   .admin-grid { gap: 10px; }
   .user-row { flex-wrap: wrap; gap: 8px; }
   .user-row-actions { width: 100%; justify-content: flex-end; }
+
+  /* Sidebar toggle — esconde em mobile (usa hamburger) */
+  .sidebar-toggle { display: none; }
+
+  /* Modal padrão em mobile — bottom sheet */
+  dialog.modal {
+    margin: 0;
+    width: 100vw;
+    max-height: 92dvh;
+    border-radius: 20px 20px 0 0;
+    border-bottom: none;
+  }
+  /* Garante que todos modais ficam na parte inferior */
+  dialog.modal { inset: auto 0 0 0; transform: none !important; }
+
+  /* Aumenta área de toque nos botões de nav */
+  .nav-item { height: 46px; }
+
+  /* Scroll suave no nav */
+  .nav-list { -webkit-overflow-scrolling: touch; }
+
+  /* KPI delta — não quebra linha */
+  .kpi-delta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* ─── Mobile pequeno (≤420px) ───────────────────────────────── */
@@ -1064,6 +1087,10 @@ p { color: var(--ink2); }
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+/* Garante que footer seja sempre visível */
+.profile-modal-wide .modal-footer {
+  flex-shrink: 0;
 }
 
 /* Hero */
@@ -1321,6 +1348,8 @@ p { color: var(--ink2); }
 .profile-match-chip svg { width: 11px; height: 11px; }
 
 /* ─── Responsive ajustes ───────────────────────────────────── */
+
+/* ─── Profile modal mobile ─────────────────────────────────── */
 @media (max-width: 768px) {
   .profile-modal-wide {
     width: 100vw;
@@ -1333,4 +1362,16 @@ p { color: var(--ink2); }
   .match-badge { display: none; }
   .profile-modal-tabs { padding: 0 12px; overflow-x: auto; }
   .pmt { padding: 10px 12px; white-space: nowrap; }
+
+  /* Hero compacto */
+  .profile-modal-hero { gap: 12px; padding: 16px 16px 0; }
+  .profile-modal-avatar { width: 44px; height: 44px; font-size: 15px; }
+  .profile-modal-identity h2 { font-size: 15px; }
+
+  /* Rep form empilha critérios */
+  .rep-crit-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+
+  /* Feed compose compacto */
+  .feed-compose-type { gap: 4px; }
+  .fct { height: 26px; padding: 0 8px; font-size: 10px; }
 }
