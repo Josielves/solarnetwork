@@ -762,7 +762,8 @@ function renderConversationList(filter = "") {
 }
 
 function getOtherTenant(conv) {
-  return conv.tenant_a?.id === currentTenant.id ? conv.tenant_b : conv.tenant_a;
+  const other = conv.tenant_a?.id === currentTenant.id ? conv.tenant_b : conv.tenant_a;
+  return other || { initials: "?", name: "Empresa removida", role: "" };
 }
 
 async function openConversation(convId) {
