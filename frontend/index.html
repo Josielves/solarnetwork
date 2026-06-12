@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>iSolar | A rede social do solar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<!-- ═══════════════════════ AUTH SCREEN ═══════════════════════════════════ -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-left">
+    <div class="auth-brand">
+      <span class="brand-mark">iS</span>
+      <div>
+        <strong>iSolar</strong>
+        <span>A rede social do solar</span>
+      </div>
+    </div>
+    <h1 class="auth-headline">Conecte sua empresa<br/>ao mercado solar.</h1>
+    <p class="auth-sub">Leads qualificados, parceiros técnicos e distribuidores num só lugar.</p>
+    <div class="auth-stats">
+      <div><strong>+2.400</strong><span>integradores</span></div>
+      <div><strong>R$ 180M</strong><span>em projetos</span></div>
+      <div><strong>46 GWp</strong><span>instalados</span></div>
+    </div>
+  </div>
+  <div class="auth-right">
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Entrar</button>
+        <button class="auth-tab" data-tab="signup">Cadastrar</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="tabLogin" class="auth-form active">
+        <div class="form-field">
+          <label>E-mail</label>
+          <input id="loginEmail" type="email" placeholder="voce@empresa.com"/>
+        </div>
+        <div class="form-field">
+          <label>Senha</label>
+          <input id="loginPassword" type="password" placeholder="••••••••"/>
+        </div>
+        <div id="loginError" class="auth-error hidden"></div>
+        <button class="btn-primary full" id="btnLogin">
+          <span>Entrar na plataforma</span>
+        </button>
+        <button class="btn-ghost full" id="btnLoginDemo">Acessar demo sem cadastro</button>
+      </div>
+
+      <!-- SIGNUP -->
+      <div id="tabSignup" class="auth-form">
+        <div class="form-row">
+          <div class="form-field">
+            <label>Nome da empresa</label>
+            <input id="signupCompany" placeholder="SolPrime Energia"/>
+          </div>
+          <div class="form-field">
+            <label>Seu nome</label>
+            <input id="signupName" placeholder="Rafael Lima"/>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>E-mail</label>
+          <input id="signupEmail" type="email" placeholder="voce@empresa.com"/>
+        </div>
+        <div class="form-field">
+          <label>Senha</label>
+          <input id="signupPassword" type="password" placeholder="mínimo 6 caracteres"/>
+        </div>
+        <div class="form-field">
+          <label>Tipo de empresa</label>
+          <select id="signupRole">
+            <option value="Integrador">Integrador</option>
+            <option value="Engenharia">Engenharia</option>
+            <option value="Distribuidor">Distribuidor</option>
+          </select>
+        </div>
+        <div id="signupError" class="auth-error hidden"></div>
+        <button class="btn-primary full" id="btnSignup">Criar conta grátis</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ APP SHELL ══════════════════════════════════════ -->
+<div id="appShell" class="app-shell hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="brand">
+        <span class="brand-mark">iS</span>
+        <div class="brand-text">
+          <strong>iSolar</strong>
+          <span>Rede solar</span>
+        </div>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" title="Recolher">
+        <i data-lucide="panel-left-close"></i>
+      </button>
+    </div>
+
+    <nav class="nav-list">
+      <button class="nav-item active" data-view="dashboard">
+        <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
+      </button>
+      <button class="nav-item" data-view="pipeline">
+        <i data-lucide="kanban"></i><span>Pipeline</span>
+      </button>
+      <button class="nav-item" data-view="network">
+        <i data-lucide="network"></i><span>Network</span>
+      </button>
+      <button class="nav-item" data-view="marketplace">
+        <i data-lucide="shopping-bag"></i><span>Marketplace</span>
+      </button>
+      <button class="nav-item" data-view="whatsapp">
+        <i data-lucide="message-circle"></i><span>WhatsApp</span>
+      </button>
+      <div class="nav-divider"></div>
+      <button class="nav-item" data-view="subscription">
+        <i data-lucide="credit-card"></i><span>Assinatura</span>
+      </button>
+      <button class="nav-item" data-view="admin">
+        <i data-lucide="settings-2"></i><span>Admin</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="user-chip" id="userChip">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <div class="user-info">
+          <strong id="userName">–</strong>
+          <span id="userPlan">Free</span>
+        </div>
+      </div>
+      <div class="sidebar-actions">
+        <button class="icon-btn" id="themeToggle" title="Alternar tema">
+          <i data-lucide="sun"></i>
+        </button>
+        <button class="icon-btn" id="btnLogout" title="Sair">
+          <i data-lucide="log-out"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main" id="mainContent">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-btn mobile-menu-btn" id="mobileMenuBtn">
+          <i data-lucide="menu"></i>
+        </button>
+        <div id="pageTitle" class="page-title">Dashboard</div>
+      </div>
+      <div class="topbar-right">
+        <div class="search-wrap">
+          <i data-lucide="search"></i>
+          <input id="globalSearch" type="search" placeholder="Buscar…"/>
+        </div>
+        <button class="btn-primary" id="newLeadBtn">
+          <i data-lucide="plus"></i><span>Novo lead</span>
+        </button>
+        <button class="icon-btn notif-btn" title="Notificações">
+          <i data-lucide="bell"></i>
+          <span class="notif-badge">3</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── DASHBOARD ── -->
+    <section class="view active" id="viewDashboard">
+      <div class="kpi-grid">
+        <article class="kpi-card" data-color="blue">
+          <div class="kpi-icon"><i data-lucide="trending-up"></i></div>
+          <div class="kpi-body">
+            <span>Receita MRR</span>
+            <strong id="kpiMrr">R$ 0</strong>
+            <small class="kpi-delta positive" id="kpiMrrDelta">–</small>
+          </div>
+        </article>
+        <article class="kpi-card" data-color="green">
+          <div class="kpi-icon"><i data-lucide="users"></i></div>
+          <div class="kpi-body">
+            <span>Leads ativos</span>
+            <strong id="kpiLeads">0</strong>
+            <small class="kpi-delta" id="kpiLeadsDelta">–</small>
+          </div>
+        </article>
+        <article class="kpi-card" data-color="yellow">
+          <div class="kpi-icon"><i data-lucide="zap"></i></div>
+          <div class="kpi-body">
+            <span>kWp em pipeline</span>
+            <strong id="kpiKwp">0</strong>
+            <small class="kpi-delta" id="kpiKwpDelta">–</small>
+          </div>
+        </article>
+        <article class="kpi-card" data-color="purple">
+          <div class="kpi-icon"><i data-lucide="percent"></i></div>
+          <div class="kpi-body">
+            <span>Taxa conversão</span>
+            <strong id="kpiConv">0%</strong>
+            <small class="kpi-delta positive" id="kpiConvDelta">–</small>
+          </div>
+        </article>
+      </div>
+
+      <div class="dash-grid">
+        <article class="panel panel-chart">
+          <div class="panel-header">
+            <h3>Leads por mês</h3>
+            <div class="segmented">
+              <button class="active">6M</button>
+              <button>12M</button>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="chartLeads"></canvas></div>
+        </article>
+        <article class="panel panel-funnel">
+          <div class="panel-header"><h3>Funil de vendas</h3></div>
+          <div id="funnelList" class="funnel-list"></div>
+        </article>
+        <article class="panel panel-activity">
+          <div class="panel-header">
+            <h3>Atividades recentes</h3>
+            <button class="btn-ghost sm">Ver todas</button>
+          </div>
+          <div id="activityFeed" class="activity-feed"></div>
+        </article>
+        <article class="panel panel-kits">
+          <div class="panel-header">
+            <h3>Top kits disponíveis</h3>
+            <button class="btn-ghost sm" onclick="switchView('marketplace')">Ver mais</button>
+          </div>
+          <div id="topKits" class="top-kits"></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── PIPELINE ── -->
+    <section class="view" id="viewPipeline">
+      <div class="view-toolbar">
+        <div class="filters-row">
+          <select id="pipelineStateFilter"><option value="">Todos os estados</option></select>
+          <select id="pipelinePowerFilter">
+            <option value="">Todas as potências</option>
+            <option value="baixo">Até 10 kWp</option>
+            <option value="medio">10–50 kWp</option>
+            <option value="alto">Acima de 50 kWp</option>
+          </select>
+        </div>
+        <button class="btn-primary" id="newLeadBtn2">
+          <i data-lucide="plus"></i> Novo lead
+        </button>
+      </div>
+      <div class="kanban-board" id="kanbanBoard"></div>
+    </section>
+
+    <!-- ── NETWORK ── -->
+    <section class="view" id="viewNetwork">
+      <div class="view-toolbar">
+        <div class="filters-row">
+          <select id="networkRoleFilter"><option value="">Todos os perfis</option></select>
+          <select id="networkStateFilter"><option value="">Todos os estados</option></select>
+        </div>
+      </div>
+      <div class="profile-grid" id="profileGrid"></div>
+    </section>
+
+    <!-- ── MARKETPLACE ── -->
+    <section class="view" id="viewMarketplace">
+      <div class="view-toolbar">
+        <div class="filters-row">
+          <input id="kitSearch" type="search" placeholder="Buscar kit…" class="search-inline"/>
+        </div>
+        <button class="btn-primary" id="publishKitBtn">
+          <i data-lucide="plus"></i> Publicar kit
+        </button>
+      </div>
+      <div class="kit-grid" id="kitGrid"></div>
+    </section>
+
+    <!-- ── WHATSAPP ── -->
+    <section class="view" id="viewWhatsapp">
+      <div class="whatsapp-layout">
+        <article class="panel">
+          <div class="panel-header">
+            <h3><i data-lucide="message-circle"></i> Integração WhatsApp</h3>
+          </div>
+          <div class="wa-status">
+            <div class="wa-badge disconnected" id="waBadge">
+              <i data-lucide="wifi-off"></i> Desconectado
+            </div>
+            <p>Conecte seu número WhatsApp para receber leads, enviar propostas e se comunicar com parceiros diretamente pela plataforma.</p>
+            <button class="btn-primary" id="waConnectBtn">
+              <i data-lucide="qr-code"></i> Gerar QR Code
+            </button>
+          </div>
+          <div class="wa-features">
+            <div class="wa-feature"><i data-lucide="check-circle"></i> Receba leads via WhatsApp automaticamente</div>
+            <div class="wa-feature"><i data-lucide="check-circle"></i> Envie propostas em PDF pelo chat</div>
+            <div class="wa-feature"><i data-lucide="check-circle"></i> Notificações de novos kits disponíveis</div>
+            <div class="wa-feature"><i data-lucide="check-circle"></i> Chatbot para triagem de clientes finais</div>
+          </div>
+        </article>
+        <article class="panel">
+          <div class="panel-header"><h3>Mensagens recentes</h3></div>
+          <div class="wa-messages">
+            <div class="wa-empty">
+              <i data-lucide="message-circle"></i>
+              <p>Conecte o WhatsApp para ver mensagens aqui.</p>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── ASSINATURA ── -->
+    <section class="view" id="viewSubscription">
+      <div class="plans-grid">
+        <article class="plan-option" data-plan="free">
+          <div class="plan-badge">Gratuito</div>
+          <h3>Free</h3>
+          <div class="plan-price"><strong>R$ 0</strong><span>/mês</span></div>
+          <ul class="plan-features">
+            <li><i data-lucide="check"></i> 5 leads/mês</li>
+            <li><i data-lucide="check"></i> Perfil na rede</li>
+            <li><i data-lucide="x"></i> Pipeline ilimitado</li>
+            <li><i data-lucide="x"></i> Kits no marketplace</li>
+            <li><i data-lucide="x"></i> WhatsApp integrado</li>
+          </ul>
+          <button class="btn-ghost full">Plano atual</button>
+        </article>
+        <article class="plan-option featured" data-plan="pro">
+          <div class="plan-badge">Mais popular</div>
+          <h3>Integrator Pro</h3>
+          <div class="plan-price"><strong>R$ 297</strong><span>/mês</span></div>
+          <ul class="plan-features">
+            <li><i data-lucide="check"></i> Leads ilimitados</li>
+            <li><i data-lucide="check"></i> Pipeline completo</li>
+            <li><i data-lucide="check"></i> Kits no marketplace</li>
+            <li><i data-lucide="check"></i> WhatsApp integrado</li>
+            <li><i data-lucide="check"></i> Relatórios avançados</li>
+          </ul>
+          <button class="btn-primary full">Assinar agora</button>
+        </article>
+        <article class="plan-option" data-plan="enterprise">
+          <div class="plan-badge">Corporativo</div>
+          <h3>Enterprise</h3>
+          <div class="plan-price"><strong>R$ 897</strong><span>/mês</span></div>
+          <ul class="plan-features">
+            <li><i data-lucide="check"></i> Tudo do Pro</li>
+            <li><i data-lucide="check"></i> Multi-usuários</li>
+            <li><i data-lucide="check"></i> API dedicada</li>
+            <li><i data-lucide="check"></i> Suporte prioritário</li>
+            <li><i data-lucide="check"></i> White-label</li>
+          </ul>
+          <button class="btn-ghost full">Falar com vendas</button>
+        </article>
+      </div>
+    </section>
+
+    <!-- ── ADMIN ── -->
+    <section class="view" id="viewAdmin">
+      <div class="admin-grid">
+        <article class="panel">
+          <div class="panel-header">
+            <h3>Usuários da empresa</h3>
+            <button class="btn-primary sm"><i data-lucide="user-plus"></i> Convidar</button>
+          </div>
+          <div id="userTable" class="user-table"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-header"><h3>Permissões</h3></div>
+          <div id="permissionList" class="permission-list"></div>
+        </article>
+        <article class="panel panel-full">
+          <div class="panel-header"><h3>Configurações da empresa</h3></div>
+          <div class="settings-form">
+            <div class="form-row">
+              <div class="form-field">
+                <label>Nome da empresa</label>
+                <input id="settingName" placeholder="SolPrime Energia"/>
+              </div>
+              <div class="form-field">
+                <label>Cidade</label>
+                <input id="settingCity" placeholder="Campinas"/>
+              </div>
+              <div class="form-field">
+                <label>Estado</label>
+                <input id="settingState" maxlength="2" placeholder="SP"/>
+              </div>
+            </div>
+            <button class="btn-primary">Salvar alterações</button>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ═══════════════════════ MODAL: NOVO LEAD ══════════════════════════════ -->
+<dialog id="leadModal" class="modal">
+  <div class="modal-header">
+    <div>
+      <span class="eyebrow">Pipeline</span>
+      <h2>Novo lead</h2>
+    </div>
+    <button class="icon-btn" id="closeLeadModal"><i data-lucide="x"></i></button>
+  </div>
+  <div class="modal-body">
+    <div class="form-row">
+      <div class="form-field">
+        <label>Nome do cliente *</label>
+        <input id="leadName" placeholder="Ex.: Supermercado Aurora"/>
+      </div>
+      <div class="form-field">
+        <label>Tipo</label>
+        <select id="leadType">
+          <option>Residencial</option>
+          <option>Comercial</option>
+          <option>Industrial</option>
+          <option>Rural</option>
+          <option>Saúde</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>Cidade *</label>
+        <input id="leadCity" placeholder="Campinas"/>
+      </div>
+      <div class="form-field">
+        <label>Estado *</label>
+        <input id="leadState" maxlength="2" placeholder="SP"/>
+      </div>
+      <div class="form-field">
+        <label>Potência (kWp) *</label>
+        <input id="leadPower" type="number" placeholder="18"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>Contato</label>
+        <input id="leadContact" placeholder="João Silva"/>
+      </div>
+      <div class="form-field">
+        <label>Telefone</label>
+        <input id="leadPhone" placeholder="(11) 99999-9999"/>
+      </div>
+      <div class="form-field">
+        <label>Valor estimado (R$)</label>
+        <input id="leadValue" type="number" placeholder="45000"/>
+      </div>
+    </div>
+    <div class="form-field full">
+      <label>Observações</label>
+      <textarea id="leadNote" placeholder="Detalhes do projeto, urgência, tipo de telhado…"></textarea>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-ghost" id="cancelLeadModal">Cancelar</button>
+    <button class="btn-primary" id="saveLeadBtn">
+      <i data-lucide="save"></i> Salvar lead
+    </button>
+  </div>
+</dialog>
+
+<!-- ═══════════════════════ MODAL: PUBLICAR KIT ═══════════════════════════ -->
+<dialog id="kitModal" class="modal">
+  <div class="modal-header">
+    <div>
+      <span class="eyebrow">Marketplace</span>
+      <h2>Publicar kit fotovoltaico</h2>
+    </div>
+    <button class="icon-btn" id="closeKitModal"><i data-lucide="x"></i></button>
+  </div>
+  <div class="modal-body">
+    <div class="form-row">
+      <div class="form-field">
+        <label>Nome do kit *</label>
+        <input id="kitTitle" placeholder="Ex.: Kit Residencial 6,6 kWp"/>
+      </div>
+      <div class="form-field">
+        <label>Distribuidor *</label>
+        <input id="kitDistributor" placeholder="Ex.: VoltSul Distribuidora"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>Cidade *</label>
+        <input id="kitCity" placeholder="Curitiba"/>
+      </div>
+      <div class="form-field">
+        <label>Estado *</label>
+        <input id="kitState" maxlength="2" placeholder="PR"/>
+      </div>
+      <div class="form-field">
+        <label>Preco (R$) *</label>
+        <input id="kitPrice" type="number" placeholder="52400"/>
+      </div>
+      <div class="form-field">
+        <label>Estoque (unidades)</label>
+        <input id="kitStock" type="number" placeholder="10"/>
+      </div>
+    </div>
+    <div class="form-field full">
+      <label>Itens do kit (um por linha)</label>
+      <textarea id="kitItems" placeholder="46 modulos TOPCon&#10;Inversor 25 kW&#10;Estrutura metalica"></textarea>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-ghost" id="cancelKitModal">Cancelar</button>
+    <button class="btn-primary" id="saveKitBtn">
+      <i data-lucide="save"></i> Publicar kit
+    </button>
+  </div>
+</dialog>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
