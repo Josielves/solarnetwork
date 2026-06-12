@@ -548,6 +548,38 @@
   </div>
 </dialog>
 
+<!-- ═══════════════════════ MODAL: PERFIL DA EMPRESA ══════════════════════ -->
+<dialog id="profileModal" class="modal">
+  <div class="modal-header">
+    <div>
+      <span class="eyebrow">Network</span>
+      <h2 id="profileModalName">–</h2>
+    </div>
+    <button class="icon-btn" id="closeProfileModal"><i data-lucide="x"></i></button>
+  </div>
+  <div class="modal-body">
+    <div class="profile-top" style="margin-bottom:4px">
+      <span class="avatar" id="profileModalAvatar">iS</span>
+      <div>
+        <div class="profile-name" id="profileModalRole">–</div>
+        <div class="rating">
+          <span class="stars" id="profileModalStars"></span>
+          <span class="rating-val" id="profileModalRating">–</span>
+        </div>
+      </div>
+    </div>
+    <p id="profileModalLocation" style="font-size:13px"></p>
+    <div id="profileModalComment" class="comment-box hidden"></div>
+    <div class="tag-row" id="profileModalTags"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-ghost" id="closeProfileModal2">Fechar</button>
+    <button class="btn-primary" onclick="switchView('whatsapp')">
+      <i data-lucide="message-circle"></i> Conversar
+    </button>
+  </div>
+</dialog>
+
 <div id="toast" class="toast hidden"></div>
 
 <script src="app.js"></script>
