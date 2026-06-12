@@ -6,6 +6,7 @@
 const SUPABASE_URL      = "https://xvzqsusaaccjeewfsnev.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2enFzdXNhYWNjamVld2ZzbmV2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDkzNTA4NiwiZXhwIjoyMDk2NTExMDg2fQ.oycjFk28DgIsUezX0g8jkO6Ul4N84lSM9cY8FLoNoxY"; // ← sua anon key
 const BACKEND_URL       = "https://solarnetwork-production.up.railway.app";
+
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -724,7 +725,7 @@ async function loadConversations() {
     .order("last_at", { ascending: false });
 
   if (error) { console.error("Chat:", error.message); return; }
-  conversations = data || [];
+  conversations = (data || []).filter(c => c.tenant_a?.id && c.tenant_b?.id);
   renderConversationList();
 }
 
@@ -744,7 +745,7 @@ function renderConversationList(filter = "") {
     return;
   }
 
-  list.innerHTML = filtered.map(c => {
+  list.innerHTML = filtered.filter(c => c.tenant_a && c.tenant_b).map(c => {
     const other = getOtherTenant(c);
     const time  = c.last_at ? new Date(c.last_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
     return `<div class="conv-item ${c.id === activeConvId ? "active" : ""}"
