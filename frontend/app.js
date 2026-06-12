@@ -734,15 +734,18 @@ async function loadConversations() {
     .in("id", tenantIds);
 
   const tenantMap = Object.fromEntries((tenantRows || []).map(t => [t.id, t]));
+  // Garante que o tenant atual está no mapa (fallback local)
+  if (currentTenant?.id && !tenantMap[currentTenant.id]) {
+    tenantMap[currentTenant.id] = currentTenant;
+  }
 
-  // 4. Monta o objeto de conversa com dados completos, filtrando orfas
-  conversations = convRows
-    .map(c => ({
-      ...c,
-      tenant_a: tenantMap[c.tenant_a] || null,
-      tenant_b: tenantMap[c.tenant_b] || null,
-    }))
-    .filter(c => c.tenant_a?.id && c.tenant_b?.id);
+  // 4. Monta o objeto de conversa com dados completos
+  // Usa fallback genérico em vez de descartar conversas com tenant não encontrado
+  conversations = convRows.map(c => ({
+    ...c,
+    tenant_a: tenantMap[c.tenant_a] || { id: c.tenant_a, name: "Empresa", initials: "?", role: "" },
+    tenant_b: tenantMap[c.tenant_b] || { id: c.tenant_b, name: "Empresa", initials: "?", role: "" },
+  }));
 
   renderConversationList();
 }
