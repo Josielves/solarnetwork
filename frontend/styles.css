@@ -882,3 +882,22 @@ p { color: var(--ink2); }
   .chat-sidebar { display: none; }
   .chat-sidebar.mobile-open { display: flex; position: fixed; inset: 0; z-index: 200; }
 }
+
+/* ─── Admin: user-row ──────────────────────────────────────────── */
+.user-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: 8px; gap: 12px;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+.user-row:last-child { border-bottom: none; }
+.user-row:hover { background: var(--bg2); }
+.user-row-info {
+  display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+}
+.user-row-actions {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+.admin-grid {
+  display: flex; flex-direction: column; gap: 20px;
+}
