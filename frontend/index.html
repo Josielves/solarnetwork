@@ -4,6 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>iSolar | A rede social do solar</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -591,6 +592,38 @@
     <button class="btn-ghost" id="cancelKitModal">Cancelar</button>
     <button class="btn-primary" id="saveKitBtn">
       <i data-lucide="save"></i> Publicar kit
+    </button>
+  </div>
+</dialog>
+
+<!-- ═══════════════════════ MODAL: PERFIL DA EMPRESA ══════════════════════ -->
+<dialog id="profileModal" class="modal">
+  <div class="modal-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="user-avatar" id="profileModalInitials" style="width:44px;height:44px;font-size:16px;border-radius:12px;background:var(--leaf);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">?</div>
+      <div>
+        <span class="eyebrow">Network</span>
+        <h2 id="profileModalName" style="margin:0">–</h2>
+      </div>
+    </div>
+    <button class="icon-btn" onclick="document.getElementById('profileModal').close()">
+      <i data-lucide="x"></i>
+    </button>
+  </div>
+  <div class="modal-body" style="display:flex;flex-direction:column;gap:10px">
+    <p id="profileModalRole" style="color:var(--muted);font-size:13px;margin:0"></p>
+    <p id="profileModalLocation" style="font-size:13px;margin:0;display:flex;align-items:center;gap:6px">
+      <i data-lucide="map-pin" style="width:14px;height:14px"></i>
+      <span id="profileModalLocationText"></span>
+    </p>
+    <div id="profileModalRating" class="rating" style="margin:0"></div>
+    <div id="profileModalComment" class="comment-box" style="margin:0"></div>
+    <div id="profileModalTags" class="tag-row" style="margin:0"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-ghost" onclick="document.getElementById('profileModal').close()">Fechar</button>
+    <button class="btn-primary" id="profileModalChatBtn">
+      <i data-lucide="message-square"></i> Iniciar conversa
     </button>
   </div>
 </dialog>
