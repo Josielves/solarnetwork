@@ -5,7 +5,7 @@
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const SUPABASE_URL      = "https://xvzqsusaaccjeewfsnev.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2enFzdXNhYWNjamVld2ZzbmV2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDkzNTA4NiwiZXhwIjoyMDk2NTExMDg2fQ.oycjFk28DgIsUezX0g8jkO6Ul4N84lSM9cY8FLoNoxY"; // ← sua anon key
-const BACKEND_URL       = "https://solarnetwork-production.up.railway.app"; // ← ex: https://isolar-backend.up.railway.app
+const BACKEND_URL       = "https://solarnetwork-production.up.railway.app";
 
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -13,6 +13,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let currentUser   = null;
 let currentTenant = null;
+let currentProfile = null;
 let authToken     = null;
 let appData = { leads: [], kits: [], activities: [], tenants: [], messages: [] };
 let chartInstance = null;
@@ -116,7 +117,17 @@ async function loadTenant() {
     .eq("id", currentUser.id)
     .single();
   if (data) {
-    currentTenant = data.tenants;
+    currentTenant  = data.tenants;
+    currentProfile = data;
+
+    // Sincroniza telefone vindo do cadastro (user_metadata) caso a coluna
+    // profiles.phone ainda esteja vazia (ex.: trigger não copiou ainda).
+    const metaPhone = currentUser.user_metadata?.phone;
+    if (!currentProfile.phone && metaPhone) {
+      const { error } = await sb.from("profiles").update({ phone: metaPhone }).eq("id", currentUser.id);
+      if (!error) currentProfile.phone = metaPhone;
+    }
+
     qs("#userName").textContent  = data.name || currentUser.email.split("@")[0];
     qs("#userAvatar").textContent = (data.name || "?")[0].toUpperCase();
     qs("#userPlan").textContent   = currentTenant?.plan || "Free";
@@ -151,6 +162,7 @@ qs("#btnSignup").addEventListener("click", async () => {
   const company  = qs("#signupCompany").value.trim();
   const name     = qs("#signupName").value.trim();
   const email    = qs("#signupEmail").value.trim();
+  const phone    = qs("#signupPhone").value.trim();
   const pass     = qs("#signupPassword").value;
   const role     = qs("#signupRole").value;
   if (!company || !name || !email || !pass) {
@@ -167,7 +179,7 @@ qs("#btnSignup").addEventListener("click", async () => {
 
   const { error: uErr } = await sb.auth.signUp({
     email, password: pass,
-    options: { data: { name, tenant_id: tenant.id } },
+    options: { data: { name, phone, tenant_id: tenant.id } },
   });
   resetBtn("#btnSignup", "Criar conta grátis");
   if (uErr) showAuthError("signupError", uErr.message);
@@ -613,7 +625,7 @@ function renderAdmin() {
   qs("#userTable").innerHTML = `
     <div class="user-row">
       <strong>${qs("#userName").textContent}</strong>
-      <span>${currentUser?.email} · owner</span>
+      <span>${currentUser?.email}${currentProfile?.phone ? " · " + currentProfile.phone : ""} · owner</span>
     </div>`;
 
   const perms = [
@@ -638,10 +650,14 @@ function renderAdmin() {
     qs("#settingCity").value  = currentTenant.city  || "";
     qs("#settingState").value = currentTenant.state || "";
   }
+  if (currentProfile) {
+    qs("#profileName").value  = currentProfile.name  || "";
+    qs("#profilePhone").value = currentProfile.phone || "";
+  }
 }
 
 // ─── Save tenant settings ─────────────────────────────────────────────────────
-qs("#viewAdmin")?.querySelector(".btn-primary")?.addEventListener("click", async () => {
+qs("#btnSaveTenant")?.addEventListener("click", async () => {
   const name  = qs("#settingName").value.trim();
   const city  = qs("#settingCity").value.trim();
   const state = qs("#settingState").value.trim().toUpperCase();
@@ -649,6 +665,24 @@ qs("#viewAdmin")?.querySelector(".btn-primary")?.addEventListener("click", async
   const { error } = await sb.from("tenants").update({ name, city, state }).eq("id", currentTenant.id);
   if (!error) { currentTenant.name = name; currentTenant.city = city; currentTenant.state = state; toast("Salvo!"); }
   else toast(error.message, "error");
+});
+
+// ─── Save profile (nome + telefone) ───────────────────────────────────────────
+qs("#btnSaveProfile")?.addEventListener("click", async () => {
+  const name  = qs("#profileName").value.trim();
+  const phone = qs("#profilePhone").value.trim();
+  if (!name) return toast("Informe seu nome.", "error");
+  const { error } = await sb.from("profiles").update({ name, phone }).eq("id", currentUser.id);
+  if (!error) {
+    currentProfile.name  = name;
+    currentProfile.phone = phone;
+    qs("#userName").textContent   = name;
+    qs("#userAvatar").textContent = name[0].toUpperCase();
+    renderAdmin();
+    toast("Perfil salvo!");
+  } else {
+    toast(error.message, "error");
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
