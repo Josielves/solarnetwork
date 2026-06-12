@@ -956,6 +956,10 @@ window.selectTenantForChat = (tenantId) => {
 qs("#startChatBtn")?.addEventListener("click", async () => {
   if (!selectedTenantId) { toast("Selecione uma empresa.", "error"); return; }
 
+  // Tenant do outro lado (já está em appData.tenants)
+  const otherTenant = appData.tenants.find(t => t.id === selectedTenantId);
+  if (!otherTenant) { toast("Empresa não encontrada.", "error"); return; }
+
   // Verifica no Supabase se já existe conversa entre os dois (em qualquer ordem)
   const { data: existingRows } = await sb
     .from("chat_conversations")
@@ -967,11 +971,17 @@ qs("#startChatBtn")?.addEventListener("click", async () => {
     .limit(1);
 
   if (existingRows?.length) {
-    // Recarrega conversas completas para ter os dados de tenant
-    await loadConversations();
-    const existing = conversations.find(c => c.id === existingRows[0].id);
+    const raw = existingRows[0];
+    // Monta objeto com dados completos
+    const existing = {
+      ...raw,
+      tenant_a: raw.tenant_a === currentTenant.id ? currentTenant : otherTenant,
+      tenant_b: raw.tenant_b === currentTenant.id ? currentTenant : otherTenant,
+    };
+    if (!conversations.find(c => c.id === existing.id)) conversations.unshift(existing);
     qs("#newChatModal").close();
-    if (existing) openConversation(existing.id);
+    renderConversationList();
+    openConversation(existing.id);
     return;
   }
 
@@ -984,11 +994,16 @@ qs("#startChatBtn")?.addEventListener("click", async () => {
 
   if (error) { toast(error.message, "error"); return; }
 
+  // Monta objeto localmente sem depender de reload
+  const newConv = {
+    ...data,
+    tenant_a: currentTenant,
+    tenant_b: otherTenant,
+  };
+  conversations.unshift(newConv);
+  renderConversationList();
   qs("#newChatModal").close();
-  // Recarrega para ter os dados completos de tenant
-  await loadConversations();
-  const created = conversations.find(c => c.id === data.id);
-  if (created) openConversation(created.id);
+  openConversation(newConv.id);
   toast("Conversa iniciada!");
 });
 
