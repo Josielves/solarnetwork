@@ -966,9 +966,6 @@ qs("#newLeadBtn").addEventListener("click",  openLead);
 qs("#newLeadBtn2").addEventListener("click", openLead);
 qs("#closeLeadModal").addEventListener("click",  () => qs("#leadModal").close());
 qs("#cancelLeadModal").addEventListener("click", () => qs("#leadModal").close());
-// Profile modal close buttons
-qs("#profileModalCloseX")?.addEventListener("click",  () => qs("#profileModal").close());
-qs("#profileModalCloseBtn")?.addEventListener("click", () => qs("#profileModal").close());
 
 qs("#saveLeadBtn").addEventListener("click", async () => {
   const name  = qs("#leadName").value.trim();
@@ -1814,6 +1811,17 @@ window.openProfileModal = (tenant) => {
     switchView("chat");
     loadChat();
   });
+
+  // ── Botões fechar — re-bind a cada abertura ──
+  const closeX   = qs("#profileModalCloseX");
+  const closeBtn = qs("#profileModalCloseBtn");
+  const freshX   = closeX.cloneNode(true);
+  const freshBtn = closeBtn.cloneNode(true);
+  closeX.replaceWith(freshX);
+  closeBtn.replaceWith(freshBtn);
+  freshX.addEventListener("click",   () => modal.close());
+  freshBtn.addEventListener("click", () => modal.close());
+  lucide.createIcons(); // recria ícones após clone
 
   modal.showModal();
   lucide.createIcons();
