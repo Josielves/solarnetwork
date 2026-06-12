@@ -394,8 +394,12 @@ function renderNetwork() {
   });
 
   qs("#profileGrid").innerHTML = list.map(t => {
-    const loc = `${t.city||""}${t.city&&t.state?"/":""}${t.state||""}`;
+    const loc = [t.city, t.state].filter(Boolean).join("/");
     const tenantJson = JSON.stringify(t).replace(/"/g, "&quot;");
+    const score = calcMatch(currentTenant, t);
+    const matchChip = (score !== null && t.id !== currentTenant?.id)
+      ? `<span class="profile-match-chip"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>${score}% match</span>`
+      : "";
     return `
     <article class="profile-card profile-card--clickable" onclick="openProfileModal(${tenantJson})" title="Ver perfil de ${t.name}">
       <div class="profile-top">
@@ -408,6 +412,7 @@ function renderNetwork() {
       <div class="rating">
         <span class="stars">${stars(t.rating)}</span>
         <span class="rating-val">${Number(t.rating||0).toFixed(1)}</span>
+        ${matchChip}
       </div>
       ${loc ? `<p style="font-size:12px;margin:4px 0;color:var(--muted);display:flex;align-items:center;gap:4px"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${loc}</p>` : ""}
       ${t.comment ? `<div class="comment-box">${t.comment}</div>` : ""}
@@ -747,6 +752,13 @@ async function renderAdmin() {
     qs("#settingName").value  = currentTenant.name  || "";
     qs("#settingCity").value  = currentTenant.city  || "";
     qs("#settingState").value = currentTenant.state || "";
+    if (qs("#settingCnpj"))      qs("#settingCnpj").value      = currentTenant.cnpj      || "";
+    if (qs("#settingRazao"))     qs("#settingRazao").value     = currentTenant.razao     || "";
+    if (qs("#settingSite"))      qs("#settingSite").value      = currentTenant.site      || "";
+    if (qs("#settingInstagram")) qs("#settingInstagram").value = currentTenant.instagram || "";
+    if (qs("#settingLinkedin"))  qs("#settingLinkedin").value  = currentTenant.linkedin  || "";
+    if (qs("#settingColabs"))    qs("#settingColabs").value    = currentTenant.colabs    || "";
+    if (qs("#settingFounded"))   qs("#settingFounded").value   = currentTenant.founded   || "";
   }
 
   await loadAdminUsers();
@@ -913,13 +925,23 @@ window.confirmDeleteUser = async (id, name) => {
 
 // ─── Save tenant settings ─────────────────────────────────────────────────────
 qs("#btnSaveTenantSettings")?.addEventListener("click", async () => {
-  const name  = qs("#settingName").value.trim();
-  const city  = qs("#settingCity").value.trim();
-  const state = qs("#settingState").value.trim().toUpperCase();
+  const name    = qs("#settingName").value.trim();
+  const city    = qs("#settingCity").value.trim();
+  const state   = qs("#settingState").value.trim().toUpperCase();
+  const cnpj    = qs("#settingCnpj")?.value.trim()    || null;
+  const razao   = qs("#settingRazao")?.value.trim()   || null;
+  const site    = qs("#settingSite")?.value.trim()    || null;
+  const instagram = qs("#settingInstagram")?.value.trim() || null;
+  const linkedin  = qs("#settingLinkedin")?.value.trim()  || null;
+  const colabs  = qs("#settingColabs")?.value.trim()  || null;
+  const founded = qs("#settingFounded")?.value.trim() || null;
   if (!name) return;
-  const { error } = await sb.from("tenants").update({ name, city, state }).eq("id", currentTenant.id);
-  if (!error) { currentTenant.name = name; currentTenant.city = city; currentTenant.state = state; toast("Salvo!"); }
-  else toast(error.message, "error");
+  const payload = { name, city, state, cnpj, razao, site, instagram, linkedin, colabs, founded };
+  const { error } = await sb.from("tenants").update(payload).eq("id", currentTenant.id);
+  if (!error) {
+    Object.assign(currentTenant, payload);
+    toast("Perfil salvo!");
+  } else toast(error.message, "error");
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1435,17 +1457,291 @@ qs("#saveKitBtn").addEventListener("click", async () => {
 });
 
 // ─── PROFILE MODAL ────────────────────────────────────────────────────────────
-window.openProfileModal = (tenant) => {
-  qs("#profileModalName").textContent     = tenant.name;
-  qs("#profileModalRole").textContent     = tenant.role || "";
-  const loc = qs("#profileModalLocationText");
-  if (loc) loc.textContent = `${tenant.city || ""}${tenant.city && tenant.state ? "/" : ""}${tenant.state || ""}`;
-  qs("#profileModalComment").textContent  = tenant.comment || "";
-  qs("#profileModalComment").style.display = tenant.comment ? "block" : "none";
-  qs("#profileModalTags").innerHTML       = (tenant.permissions || []).map(p => `<span class="tag">${p}</span>`).join("");
-  qs("#profileModalRating").innerHTML     = `<span class="stars">${stars(tenant.rating)}</span><span class="rating-val">${Number(tenant.rating || 0).toFixed(1)}</span>`;
-  qs("#profileModalInitials").textContent = tenant.initials || (tenant.name || "?")[0].toUpperCase();
+// ─── Dados locais de reputação e feed (persistência via appData) ──────────────
+if (!appData.reputation) appData.reputation = {}; // { tenantId: { criteria: {}, reviews: [] } }
+if (!appData.feed)       appData.feed = {};       // { tenantId: [] }
 
+const REP_CRITERIA = ["Qualidade técnica", "Prazo", "Comunicação", "Organização"];
+
+// Gera match score baseado em região, especialidade e tipo de projeto
+function calcMatch(a, b) {
+  if (!a || !b) return null;
+  let score = 0;
+  // Região
+  if (a.state && b.state && a.state === b.state) score += 30;
+  else if (a.state && b.state) score += 10;
+  // Especialidade / role complementar
+  const complements = {
+    "Integrador": ["Distribuidor", "Instalador"],
+    "Instalador":  ["Integrador", "Distribuidor"],
+    "Distribuidor":["Integrador", "Instalador"],
+    "Elétrica":    ["Integrador"],
+  };
+  if ((complements[a.role] || []).includes(b.role)) score += 35;
+  else if (a.role === b.role) score += 15;
+  // Disponibilidade / tags em comum
+  const tagsA = new Set(a.permissions || []);
+  const tagsB = new Set(b.permissions || []);
+  const shared = [...tagsA].filter(x => tagsB.has(x)).length;
+  score += Math.min(shared * 10, 25);
+  // Reputação mínima
+  if (Number(b.rating || 0) >= 4) score += 10;
+  return Math.min(score, 99);
+}
+
+function matchFactors(a, b) {
+  const factors = [];
+  if (a.state && b.state && a.state === b.state)
+    factors.push({ icon: "map-pin", text: `Mesma região — ${b.state}` });
+  else if (a.state && b.state)
+    factors.push({ icon: "map-pin", text: `Regiões próximas (${a.state} / ${b.state})` });
+  const complements = { "Integrador":["Distribuidor","Instalador"],"Instalador":["Integrador","Distribuidor"],"Distribuidor":["Integrador","Instalador"],"Elétrica":["Integrador"] };
+  if ((complements[a.role]||[]).includes(b.role))
+    factors.push({ icon: "zap", text: `Perfis complementares — ${a.role} + ${b.role}` });
+  const tagsA = new Set(a.permissions||[]);
+  const tagsB = new Set(b.permissions||[]);
+  const shared = [...tagsA].filter(x => tagsB.has(x));
+  if (shared.length) factors.push({ icon: "tag", text: `Especialidades em comum: ${shared.join(", ")}` });
+  if (Number(b.rating||0) >= 4) factors.push({ icon: "star", text: `Alta reputação (${Number(b.rating).toFixed(1)}★)` });
+  return factors;
+}
+
+// ─── Renderiza aba Reputação ───────────────────────────────────────────────────
+function renderReputation(tenant) {
+  const rep = appData.reputation[tenant.id] || { reviews: [] };
+  const reviews = rep.reviews || [];
+
+  // Score global
+  let globalScore = Number(tenant.rating || 0);
+  if (reviews.length) {
+    const avg = reviews.reduce((s, r) => s + r.overall, 0) / reviews.length;
+    globalScore = avg;
+  }
+  qs("#repScore").textContent = globalScore ? globalScore.toFixed(1) : "–";
+  qs("#repStars").textContent = globalScore ? stars(globalScore) : "☆☆☆☆☆";
+  qs("#repCount").textContent = reviews.length ? `${reviews.length} avaliação${reviews.length>1?"ões":""}` : "Sem avaliações";
+
+  // Barras por critério
+  const criteriaScores = {};
+  REP_CRITERIA.forEach(c => {
+    const vals = reviews.map(r => r.criteria?.[c] || 0).filter(Boolean);
+    criteriaScores[c] = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+  });
+  qs("#repBars").innerHTML = REP_CRITERIA.map(c => {
+    const v = criteriaScores[c];
+    return `<div class="rep-bar-row">
+      <span class="rep-bar-label">${c}</span>
+      <div class="rep-bar-wrap"><div class="rep-bar-fill" style="width:${v*20}%"></div></div>
+      <span class="rep-bar-val">${v ? v.toFixed(1) : "–"}</span>
+    </div>`;
+  }).join("");
+
+  // Lista de reviews
+  qs("#repReviewList").innerHTML = reviews.length ? reviews.slice().reverse().map(r => `
+    <div class="rep-review-item">
+      <div class="rep-review-header">
+        <span class="rep-review-author">${r.author || "Parceiro"}</span>
+        <span class="rep-review-date">${r.date || ""}</span>
+        <span class="rep-review-stars">${stars(r.overall)}</span>
+      </div>
+      ${r.text ? `<p class="rep-review-text">${r.text}</p>` : ""}
+      <div class="rep-review-criteria">
+        ${REP_CRITERIA.map(c => r.criteria?.[c] ? `<span class="rep-crit-tag">${c}: ${r.criteria[c]}★</span>` : "").join("")}
+      </div>
+    </div>`).join("") : `<p style="color:var(--muted);font-size:13px;padding:8px 0">Ainda sem avaliações para este parceiro.</p>`;
+
+  // Star pickers para avaliação
+  const criteriaState = {};
+  REP_CRITERIA.forEach(c => { criteriaState[c] = 0; });
+
+  qs("#repCriteriaInputs").innerHTML = REP_CRITERIA.map(c => `
+    <div class="rep-crit-row">
+      <label>${c}</label>
+      <div class="star-picker" data-crit="${c}">
+        ${[1,2,3,4,5].map(n => `<button type="button" data-val="${n}">★</button>`).join("")}
+      </div>
+    </div>`).join("");
+
+  qsa(".star-picker").forEach(picker => {
+    const crit = picker.dataset.crit;
+    picker.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        criteriaState[crit] = Number(btn.dataset.val);
+        picker.querySelectorAll("button").forEach(b => b.classList.toggle("lit", Number(b.dataset.val) <= criteriaState[crit]));
+      });
+    });
+  });
+
+  qs("#repSubmitBtn").onclick = () => {
+    const overall = Object.values(criteriaState).filter(Boolean);
+    if (!overall.length) { toast("Selecione ao menos uma estrela.", "error"); return; }
+    const avg = overall.reduce((a,b)=>a+b,0)/overall.length;
+    const review = {
+      author: currentProfile?.name || currentUser?.email?.split("@")[0] || "Você",
+      date: new Date().toLocaleDateString("pt-BR"),
+      overall: parseFloat(avg.toFixed(1)),
+      criteria: { ...criteriaState },
+      text: qs("#repComment").value.trim(),
+    };
+    if (!appData.reputation[tenant.id]) appData.reputation[tenant.id] = { reviews: [] };
+    appData.reputation[tenant.id].reviews.push(review);
+    qs("#repComment").value = "";
+    REP_CRITERIA.forEach(c => { criteriaState[c]=0; });
+    qsa(".star-picker button").forEach(b => b.classList.remove("lit"));
+    renderReputation(tenant);
+    toast("Avaliação enviada!");
+  };
+}
+
+// ─── Renderiza aba Feed ────────────────────────────────────────────────────────
+function renderFeed(tenant) {
+  const isOwn = tenant.id === currentTenant?.id;
+  const feedWrap = qs("#feedPublishWrap");
+  feedWrap.style.display = isOwn ? "block" : "none";
+
+  // Tipo selecionado
+  let selectedType = "obra";
+  qsa(".fct").forEach(btn => {
+    btn.addEventListener("click", () => {
+      selectedType = btn.dataset.fct;
+      qsa(".fct").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    });
+  });
+
+  qs("#feedPublishBtn").onclick = () => {
+    const text = qs("#feedText").value.trim();
+    if (!text) { toast("Escreva algo antes de publicar.", "error"); return; }
+    const post = {
+      id: Date.now(),
+      type: selectedType,
+      text,
+      author: currentProfile?.name || "Você",
+      when: "agora mesmo",
+      likes: 0,
+    };
+    if (!appData.feed[tenant.id]) appData.feed[tenant.id] = [];
+    appData.feed[tenant.id].unshift(post);
+    qs("#feedText").value = "";
+    renderFeedList(tenant);
+    toast("Publicado!");
+  };
+
+  renderFeedList(tenant);
+}
+
+const feedTypeLabels = { obra:"Obra", dica:"Dica", problema:"Problema", equipamento:"Equipamento" };
+
+function renderFeedList(tenant) {
+  const posts = appData.feed[tenant.id] || [];
+  const initials = tenant.initials || (tenant.name||"?")[0].toUpperCase();
+  qs("#feedList").innerHTML = posts.length ? posts.map(p => `
+    <div class="feed-post" id="fpost-${p.id}">
+      <div class="feed-post-header">
+        <div class="feed-post-avatar">${initials}</div>
+        <div>
+          <div class="feed-post-author">${p.author}</div>
+          <div class="feed-post-when">${p.when}</div>
+        </div>
+        <span class="feed-post-type-badge ${p.type}">${feedTypeLabels[p.type]||p.type}</span>
+      </div>
+      <p class="feed-post-text">${p.text}</p>
+      <div class="feed-post-actions">
+        <button class="feed-action-btn" onclick="likeFeedPost('${tenant.id}',${p.id})">
+          <i data-lucide="heart"></i> <span id="likes-${p.id}">${p.likes||0}</span>
+        </button>
+        <button class="feed-action-btn">
+          <i data-lucide="message-circle"></i> Comentar
+        </button>
+        <button class="feed-action-btn">
+          <i data-lucide="share-2"></i> Compartilhar
+        </button>
+      </div>
+    </div>`).join("") :
+    `<div class="feed-empty">
+      <i data-lucide="rss"></i>
+      <p>Nenhuma publicação ainda.</p>
+      ${tenant.id === currentTenant?.id ? "<small>Seja o primeiro a publicar!</small>" : ""}
+    </div>`;
+  lucide.createIcons();
+}
+
+window.likeFeedPost = (tenantId, postId) => {
+  const post = (appData.feed[tenantId]||[]).find(p => p.id === postId);
+  if (post) { post.likes = (post.likes||0) + 1; qs(`#likes-${postId}`).textContent = post.likes; }
+};
+
+// ─── Modal principal ───────────────────────────────────────────────────────────
+window.openProfileModal = (tenant) => {
+  // Identidade
+  qs("#profileModalInitials").textContent = tenant.initials || (tenant.name||"?")[0].toUpperCase();
+  qs("#profileModalName").textContent     = tenant.name || "–";
+  qs("#profileModalRoleBadge").textContent = tenant.role || "";
+  const locEl = qs("#profileModalLocationText");
+  if (locEl) locEl.textContent = [tenant.city, tenant.state].filter(Boolean).join("/");
+  qs("#profileModalLocation").style.display = (tenant.city||tenant.state) ? "flex" : "none";
+
+  // ── Dados Comerciais ──
+  const show = (id, val) => { const el = qs(id); if (el) { el.style.display = val ? "" : "none"; } };
+  show("#piCnpj",    tenant.cnpj);    if (tenant.cnpj)    qs("#profileModalCnpj").textContent    = formatCnpj(tenant.cnpj);
+  show("#piRazao",   tenant.razao);   if (tenant.razao)   qs("#profileModalRazao").textContent   = tenant.razao;
+  show("#piColabs",  tenant.colabs);  if (tenant.colabs)  qs("#profileModalColabs").textContent  = tenant.colabs + " colaboradores";
+  show("#piFounded", tenant.founded); if (tenant.founded) qs("#profileModalFounded").textContent = "Desde " + tenant.founded;
+
+  // Links
+  const links = [];
+  if (tenant.site)      links.push({ icon:"globe",     label:"Site",       url: ensureHttp(tenant.site) });
+  if (tenant.instagram) links.push({ icon:"instagram",  label:"Instagram",  url: "https://instagram.com/" + tenant.instagram.replace("@","") });
+  if (tenant.linkedin)  links.push({ icon:"linkedin",   label:"LinkedIn",   url: ensureHttp(tenant.linkedin) });
+  if (tenant.facebook)  links.push({ icon:"facebook",   label:"Facebook",   url: ensureHttp(tenant.facebook) });
+  qs("#profileModalLinks").innerHTML = links.map(l =>
+    `<a class="profile-link-btn" href="${l.url}" target="_blank" rel="noopener">
+      <i data-lucide="${l.icon}"></i> ${l.label}
+    </a>`).join("") || "";
+
+  // Apresentação
+  qs("#profileModalCommentWrap").style.display = tenant.comment ? "" : "none";
+  qs("#profileModalComment").textContent = tenant.comment || "";
+
+  // Tags
+  const tags = tenant.permissions || [];
+  qs("#profileModalTagsWrap").style.display = tags.length ? "" : "none";
+  qs("#profileModalTags").innerHTML = tags.map(p => `<span class="tag">${p}</span>`).join("");
+
+  // ── Match ──
+  const score = calcMatch(currentTenant, tenant);
+  const matchBadge = qs("#profileModalMatch");
+  if (score !== null && tenant.id !== currentTenant?.id) {
+    matchBadge.style.display = "flex";
+    qs("#profileModalMatchPct").textContent = score + "%";
+    const arc = qs("#matchArc");
+    if (arc) { const dash = (score/100)*94; arc.setAttribute("stroke-dasharray", `${dash} 94`); }
+    const factors = matchFactors(currentTenant, tenant);
+    const detailWrap = qs("#profileModalMatchDetail");
+    detailWrap.style.display = factors.length ? "" : "none";
+    qs("#profileModalMatchFactors").innerHTML = factors.map(f =>
+      `<div class="match-factor"><i data-lucide="${f.icon}"></i> ${f.text}</div>`).join("");
+  } else {
+    matchBadge.style.display = "none";
+    qs("#profileModalMatchDetail").style.display = "none";
+  }
+
+  // ── Tabs ── reset para aba "sobre"
+  qsa(".pmt").forEach(b => b.classList.toggle("active", b.dataset.pmt === "sobre"));
+  qsa(".pmt-panel").forEach(p => p.classList.toggle("active", p.id === "pmtSobre"));
+
+  qsa(".pmt").forEach(btn => {
+    btn.onclick = () => {
+      qsa(".pmt").forEach(b => b.classList.remove("active"));
+      qsa(".pmt-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      qs(`#pmt${cap(btn.dataset.pmt)}`).classList.add("active");
+      if (btn.dataset.pmt === "reputacao") renderReputation(tenant);
+      if (btn.dataset.pmt === "feed")      renderFeed(tenant);
+    };
+  });
+
+  // ── Chat btn ──
   qs("#profileModalChatBtn").onclick = () => {
     qs("#profileModal").close();
     selectedTenantId = tenant.id;
@@ -1456,6 +1752,16 @@ window.openProfileModal = (tenant) => {
   qs("#profileModal").showModal();
   lucide.createIcons();
 };
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function formatCnpj(v) {
+  const d = String(v).replace(/\D/g,"");
+  return d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,"$1.$2.$3/$4-$5") : v;
+}
+function ensureHttp(url) {
+  if (!url) return "#";
+  return /^https?:\/\//.test(url) ? url : "https://" + url;
+}
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
