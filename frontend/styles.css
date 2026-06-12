@@ -800,6 +800,7 @@ p { color: var(--ink2); }
 
 .chat-messages {
   flex: 1; overflow-y: auto;
+  height: 0; /* força o flex a respeitar o limite */
   padding: 16px; display: flex; flex-direction: column; gap: 8px;
 }
 .msg {
