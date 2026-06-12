@@ -840,6 +840,35 @@
 
 <div id="toast" class="toast hidden"></div>
 
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- BOTTOM NAV — apenas mobile                                  -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<nav class="bottom-nav" id="bottomNav" aria-label="Navegação principal">
+  <div class="bottom-nav-inner">
+    <button class="bottom-nav-item active" data-view="dashboard">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Início</span>
+    </button>
+    <button class="bottom-nav-item" data-view="pipeline">
+      <i data-lucide="kanban"></i>
+      <span>Pipeline</span>
+    </button>
+    <button class="bottom-nav-item" data-view="network">
+      <i data-lucide="network"></i>
+      <span>Network</span>
+    </button>
+    <button class="bottom-nav-item" data-view="chat">
+      <i data-lucide="messages-square"></i>
+      <span>Chat</span>
+      <span class="bn-badge" id="bnChatBadge" style="display:none">0</span>
+    </button>
+    <button class="bottom-nav-item" data-view="marketplace">
+      <i data-lucide="shopping-bag"></i>
+      <span>Mercado</span>
+    </button>
+  </div>
+</nav>
+
 <script src="app.js"></script>
 </body>
 </html>
