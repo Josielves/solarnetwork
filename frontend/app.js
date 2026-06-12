@@ -6,7 +6,6 @@
 const SUPABASE_URL      = "https://xvzqsusaaccjeewfsnev.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2enFzdXNhYWNjamVld2ZzbmV2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDkzNTA4NiwiZXhwIjoyMDk2NTExMDg2fQ.oycjFk28DgIsUezX0g8jkO6Ul4N84lSM9cY8FLoNoxY"; // ← sua anon key
 const BACKEND_URL       = "https://solarnetwork-production.up.railway.app";
-
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -432,7 +431,7 @@ function renderNetwork() {
       <p style="font-size:12px;margin:4px 0">${t.city||""}${t.city&&t.state?"/":""}${t.state||""}</p>
       ${t.comment ? `<div class="comment-box">${t.comment}</div>` : ""}
       <div class="tag-row">${(t.permissions||[]).map(p=>`<span class="tag">${p}</span>`).join("")}</div>
-      <button class="btn-primary" style="width:100%;justify-content:center">Abrir perfil</button>
+      <button class="btn-primary" style="width:100%;justify-content:center" onclick="openProfile('${t.id}')">Abrir perfil</button>
     </article>`).join("") || `<p style="color:var(--muted)">Nenhuma empresa encontrada.</p>`;
 
   const rf = qs("#networkRoleFilter");
@@ -806,6 +805,39 @@ qs("#saveKitBtn").addEventListener("click", async () => {
   resetBtn("#saveKitBtn", '<i data-lucide="save"></i> Publicar kit');
   lucide.createIcons();
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROFILE MODAL (Network)
+// ═══════════════════════════════════════════════════════════════════════════
+window.openProfile = (tenantId) => {
+  const t = appData.tenants.find(x => String(x.id) === String(tenantId));
+  if (!t) return toast("Empresa não encontrada.", "error");
+
+  qs("#profileModalName").textContent   = t.name || "–";
+  qs("#profileModalAvatar").textContent = t.initials || "iS";
+  qs("#profileModalRole").textContent   = t.role || "–";
+  qs("#profileModalStars").textContent  = stars(t.rating);
+  qs("#profileModalRating").textContent = Number(t.rating || 0).toFixed(1);
+  qs("#profileModalLocation").textContent =
+    `${t.city || ""}${t.city && t.state ? "/" : ""}${t.state || ""}` || "Localização não informada";
+
+  const commentEl = qs("#profileModalComment");
+  if (t.comment) {
+    commentEl.textContent = t.comment;
+    commentEl.classList.remove("hidden");
+  } else {
+    commentEl.classList.add("hidden");
+  }
+
+  qs("#profileModalTags").innerHTML = (t.permissions || [])
+    .map(p => `<span class="tag">${p}</span>`).join("") || "";
+
+  qs("#profileModal").showModal();
+  lucide.createIcons();
+};
+
+qs("#closeProfileModal")?.addEventListener("click",  () => qs("#profileModal").close());
+qs("#closeProfileModal2")?.addEventListener("click", () => qs("#profileModal").close());
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
