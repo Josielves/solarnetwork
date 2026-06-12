@@ -714,18 +714,36 @@ async function loadChat() {
 }
 
 async function loadConversations() {
-  const { data, error } = await sb
+  // 1. Busca as conversas (apenas IDs de tenant)
+  const { data: convRows, error } = await sb
     .from("chat_conversations")
-    .select(`
-      id, last_message, last_at,
-      tenant_a:tenant_a(id, name, initials, role),
-      tenant_b:tenant_b(id, name, initials, role)
-    `)
+    .select("id, last_message, last_at, tenant_a, tenant_b")
     .or(`tenant_a.eq.${currentTenant.id},tenant_b.eq.${currentTenant.id}`)
     .order("last_at", { ascending: false });
 
   if (error) { console.error("Chat:", error.message); return; }
-  conversations = (data || []).filter(c => c.tenant_a?.id && c.tenant_b?.id);
+  if (!convRows?.length) { conversations = []; renderConversationList(); return; }
+
+  // 2. Coleta todos os IDs unicos de tenants envolvidos
+  const tenantIds = [...new Set(convRows.flatMap(c => [c.tenant_a, c.tenant_b]))];
+
+  // 3. Busca os dados dos tenants de uma vez
+  const { data: tenantRows } = await sb
+    .from("tenants")
+    .select("id, name, initials, role, city, state")
+    .in("id", tenantIds);
+
+  const tenantMap = Object.fromEntries((tenantRows || []).map(t => [t.id, t]));
+
+  // 4. Monta o objeto de conversa com dados completos, filtrando orfas
+  conversations = convRows
+    .map(c => ({
+      ...c,
+      tenant_a: tenantMap[c.tenant_a] || null,
+      tenant_b: tenantMap[c.tenant_b] || null,
+    }))
+    .filter(c => c.tenant_a?.id && c.tenant_b?.id);
+
   renderConversationList();
 }
 
@@ -941,11 +959,7 @@ qs("#startChatBtn")?.addEventListener("click", async () => {
   // Verifica no Supabase se já existe conversa entre os dois (em qualquer ordem)
   const { data: existingRows } = await sb
     .from("chat_conversations")
-    .select(`
-      id, last_message, last_at,
-      tenant_a:tenant_a(id, name, initials, role),
-      tenant_b:tenant_b(id, name, initials, role)
-    `)
+    .select("id, last_message, last_at, tenant_a, tenant_b")
     .or(
       `and(tenant_a.eq.${currentTenant.id},tenant_b.eq.${selectedTenantId}),` +
       `and(tenant_a.eq.${selectedTenantId},tenant_b.eq.${currentTenant.id})`
@@ -953,14 +967,11 @@ qs("#startChatBtn")?.addEventListener("click", async () => {
     .limit(1);
 
   if (existingRows?.length) {
-    const existing = existingRows[0];
-    // Garante que está no array local
-    if (!conversations.find(c => c.id === existing.id)) {
-      conversations.unshift(existing);
-    }
+    // Recarrega conversas completas para ter os dados de tenant
+    await loadConversations();
+    const existing = conversations.find(c => c.id === existingRows[0].id);
     qs("#newChatModal").close();
-    renderConversationList();
-    openConversation(existing.id);
+    if (existing) openConversation(existing.id);
     return;
   }
 
@@ -969,18 +980,15 @@ qs("#startChatBtn")?.addEventListener("click", async () => {
     tenant_a: currentTenant.id,
     tenant_b: selectedTenantId,
     last_message: null,
-  }).select(`
-    id, last_message, last_at,
-    tenant_a:tenant_a(id, name, initials, role),
-    tenant_b:tenant_b(id, name, initials, role)
-  `).single();
+  }).select("id, last_message, last_at, tenant_a, tenant_b").single();
 
   if (error) { toast(error.message, "error"); return; }
 
-  conversations.unshift(data);
-  renderConversationList();
   qs("#newChatModal").close();
-  openConversation(data.id);
+  // Recarrega para ter os dados completos de tenant
+  await loadConversations();
+  const created = conversations.find(c => c.id === data.id);
+  if (created) openConversation(created.id);
   toast("Conversa iniciada!");
 });
 
