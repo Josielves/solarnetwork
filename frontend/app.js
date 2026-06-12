@@ -70,12 +70,20 @@ function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 function switchView(viewId) {
   qsa(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.view === viewId));
+  qsa(".bottom-nav-item").forEach(b => b.classList.toggle("active", b.dataset.view === viewId));
   qsa(".view").forEach(v => v.classList.toggle("active", v.id === "view" + cap(viewId)));
   qs("#pageTitle").textContent = {
     dashboard: "Dashboard", pipeline: "Pipeline", network: "Network",
     marketplace: "Marketplace", chat: "Chat", whatsapp: "WhatsApp",
     subscription: "Assinatura", admin: "Administração"
   }[viewId] || viewId;
+  // Auto-close mobile sidebar on view change
+  const sb = document.querySelector("#sidebar");
+  const ov = document.querySelector("#sidebarOverlay");
+  if (sb && sb.classList.contains("mobile-open")) {
+    sb.classList.remove("mobile-open");
+    if (ov) ov.classList.remove("active");
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1844,4 +1852,11 @@ function ensureHttp(url) {
 document.addEventListener("DOMContentLoaded", () => {
   lucide.createIcons();
   initAuth();
+  // Bottom Nav — mobile
+  document.querySelectorAll(".bottom-nav-item").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const view = btn.dataset.view;
+      if (view) switchView(view);
+    });
+  });
 });
