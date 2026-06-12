@@ -68,15 +68,9 @@
             <input id="signupName" placeholder="Rafael Lima"/>
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>E-mail</label>
-            <input id="signupEmail" type="email" placeholder="voce@empresa.com"/>
-          </div>
-          <div class="form-field">
-            <label>Telefone</label>
-            <input id="signupPhone" type="tel" placeholder="(11) 99999-9999"/>
-          </div>
+        <div class="form-field">
+          <label>E-mail</label>
+          <input id="signupEmail" type="email" placeholder="voce@empresa.com"/>
         </div>
         <div class="form-field">
           <label>Senha</label>
@@ -127,6 +121,10 @@
       </button>
       <button class="nav-item" data-view="marketplace">
         <i data-lucide="shopping-bag"></i><span>Marketplace</span>
+      </button>
+      <button class="nav-item" data-view="chat">
+        <i data-lucide="messages-square"></i><span>Chat</span>
+        <span class="nav-badge" id="chatBadge" style="display:none">0</span>
       </button>
       <button class="nav-item" data-view="whatsapp">
         <i data-lucide="message-circle"></i><span>WhatsApp</span>
@@ -295,6 +293,38 @@
       <div class="kit-grid" id="kitGrid"></div>
     </section>
 
+    <!-- ── CHAT ── -->
+    <section class="view" id="viewChat">
+      <div class="chat-layout">
+        <!-- Lista de conversas -->
+        <aside class="chat-sidebar">
+          <div class="chat-sidebar-header">
+            <h3>Conversas</h3>
+            <button class="btn-primary sm" id="newChatBtn">
+              <i data-lucide="edit"></i> Nova
+            </button>
+          </div>
+          <div class="chat-search">
+            <i data-lucide="search"></i>
+            <input id="chatSearch" type="search" placeholder="Buscar empresa…"/>
+          </div>
+          <div id="conversationList" class="conversation-list">
+            <div class="chat-empty">
+              <i data-lucide="messages-square"></i>
+              <p>Nenhuma conversa ainda.</p>
+            </div>
+          </div>
+        </aside>
+        <!-- Janela de mensagens -->
+        <div class="chat-window" id="chatWindow">
+          <div class="chat-placeholder">
+            <i data-lucide="messages-square"></i>
+            <p>Selecione uma conversa ou inicie uma nova.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ── WHATSAPP ── -->
     <section class="view" id="viewWhatsapp">
       <div class="whatsapp-layout">
@@ -310,6 +340,15 @@
             <button class="btn-primary" id="waConnectBtn">
               <i data-lucide="qr-code"></i> Gerar QR Code
             </button>
+            <div id="waQRContainer" style="display:none;margin-top:20px;text-align:center">
+              <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+                Abra o WhatsApp no celular → <strong>Dispositivos conectados</strong> → <strong>Conectar dispositivo</strong> → escaneie o QR abaixo
+              </p>
+              <div style="display:inline-block;padding:12px;background:#fff;border-radius:12px;border:2px solid var(--border)">
+                <img id="waQRImg" src="" alt="QR Code WhatsApp" style="width:220px;height:220px;display:block"/>
+              </div>
+              <p style="font-size:12px;color:var(--muted);margin-top:10px">QR Code expira em 60 segundos</p>
+            </div>
           </div>
           <div class="wa-features">
             <div class="wa-feature"><i data-lucide="check-circle"></i> Receba leads via WhatsApp automaticamente</div>
@@ -389,22 +428,6 @@
           <div class="panel-header"><h3>Permissões</h3></div>
           <div id="permissionList" class="permission-list"></div>
         </article>
-        <article class="panel">
-          <div class="panel-header"><h3>Meu perfil</h3></div>
-          <div class="settings-form">
-            <div class="form-row">
-              <div class="form-field">
-                <label>Nome</label>
-                <input id="profileName" placeholder="Seu nome"/>
-              </div>
-              <div class="form-field">
-                <label>Telefone</label>
-                <input id="profilePhone" type="tel" placeholder="(11) 99999-9999"/>
-              </div>
-            </div>
-            <button class="btn-primary" id="btnSaveProfile">Salvar perfil</button>
-          </div>
-        </article>
         <article class="panel panel-full">
           <div class="panel-header"><h3>Configurações da empresa</h3></div>
           <div class="settings-form">
@@ -422,7 +445,7 @@
                 <input id="settingState" maxlength="2" placeholder="SP"/>
               </div>
             </div>
-            <button class="btn-primary" id="btnSaveTenant">Salvar alterações</button>
+            <button class="btn-primary">Salvar alterações</button>
           </div>
         </article>
       </div>
@@ -497,6 +520,30 @@
   </div>
 </dialog>
 
+<!-- ═══════════════════════ MODAL: NOVA CONVERSA ════════════════════════ -->
+<dialog id="newChatModal" class="modal">
+  <div class="modal-header">
+    <div>
+      <span class="eyebrow">Chat</span>
+      <h2>Nova conversa</h2>
+    </div>
+    <button class="icon-btn" id="closeNewChatModal"><i data-lucide="x"></i></button>
+  </div>
+  <div class="modal-body">
+    <div class="form-field">
+      <label>Buscar empresa</label>
+      <input id="newChatSearch" placeholder="Digite o nome da empresa…"/>
+    </div>
+    <div id="tenantOptionList" class="tenant-option-list" style="margin-top:8px"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-ghost" id="cancelNewChat">Cancelar</button>
+    <button class="btn-primary" id="startChatBtn">
+      <i data-lucide="message-square"></i> Iniciar conversa
+    </button>
+  </div>
+</dialog>
+
 <!-- ═══════════════════════ MODAL: PUBLICAR KIT ═══════════════════════════ -->
 <dialog id="kitModal" class="modal">
   <div class="modal-header">
@@ -544,38 +591,6 @@
     <button class="btn-ghost" id="cancelKitModal">Cancelar</button>
     <button class="btn-primary" id="saveKitBtn">
       <i data-lucide="save"></i> Publicar kit
-    </button>
-  </div>
-</dialog>
-
-<!-- ═══════════════════════ MODAL: PERFIL DA EMPRESA ══════════════════════ -->
-<dialog id="profileModal" class="modal">
-  <div class="modal-header">
-    <div>
-      <span class="eyebrow">Network</span>
-      <h2 id="profileModalName">–</h2>
-    </div>
-    <button class="icon-btn" id="closeProfileModal"><i data-lucide="x"></i></button>
-  </div>
-  <div class="modal-body">
-    <div class="profile-top" style="margin-bottom:4px">
-      <span class="avatar" id="profileModalAvatar">iS</span>
-      <div>
-        <div class="profile-name" id="profileModalRole">–</div>
-        <div class="rating">
-          <span class="stars" id="profileModalStars"></span>
-          <span class="rating-val" id="profileModalRating">–</span>
-        </div>
-      </div>
-    </div>
-    <p id="profileModalLocation" style="font-size:13px"></p>
-    <div id="profileModalComment" class="comment-box hidden"></div>
-    <div class="tag-row" id="profileModalTags"></div>
-  </div>
-  <div class="modal-footer">
-    <button class="btn-ghost" id="closeProfileModal2">Fechar</button>
-    <button class="btn-primary" onclick="switchView('whatsapp')">
-      <i data-lucide="message-circle"></i> Conversar
     </button>
   </div>
 </dialog>
