@@ -1812,16 +1812,19 @@ window.openProfileModal = (tenant) => {
     loadChat();
   });
 
-  // ── Botões fechar — re-bind a cada abertura ──
-  const closeX   = qs("#profileModalCloseX");
-  const closeBtn = qs("#profileModalCloseBtn");
-  const freshX   = closeX.cloneNode(true);
-  const freshBtn = closeBtn.cloneNode(true);
-  closeX.replaceWith(freshX);
-  closeBtn.replaceWith(freshBtn);
-  freshX.addEventListener("click",   () => modal.close());
-  freshBtn.addEventListener("click", () => modal.close());
-  lucide.createIcons(); // recria ícones após clone
+  // ── Botões fechar — re-bind a cada abertura para garantir funcionamento ──
+  const closeX   = modal.querySelector("#profileModalCloseX");
+  const closeBtn = modal.querySelector("#profileModalCloseBtn");
+  if (closeX) {
+    const fx = closeX.cloneNode(true);
+    closeX.replaceWith(fx);
+    fx.addEventListener("click", () => modal.close());
+  }
+  if (closeBtn) {
+    const fb = closeBtn.cloneNode(true);
+    closeBtn.replaceWith(fb);
+    fb.addEventListener("click", () => modal.close());
+  }
 
   modal.showModal();
   lucide.createIcons();
