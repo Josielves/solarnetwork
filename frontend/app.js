@@ -1354,12 +1354,26 @@ qsa(".nav-item").forEach(btn => {
     if (v === "whatsapp")     { loadWAStatus(); loadWAMessages(); }
     if (v === "subscription") renderSubscription();
     if (v === "admin")        renderAdmin();
-    qs("#sidebar").classList.remove("mobile-open");
+    closeMobileSidebar();
   });
 });
 
 qs("#sidebarToggle").addEventListener("click", () => qs("#appShell").classList.toggle("collapsed"));
-qs("#mobileMenuBtn").addEventListener("click", () => qs("#sidebar").classList.toggle("mobile-open"));
+
+function openMobileSidebar() {
+  qs("#sidebar").classList.add("mobile-open");
+  qs("#sidebarOverlay")?.classList.add("active");
+  document.body.style.overflow = "hidden";
+}
+function closeMobileSidebar() {
+  qs("#sidebar").classList.remove("mobile-open");
+  qs("#sidebarOverlay")?.classList.remove("active");
+  document.body.style.overflow = "";
+}
+qs("#mobileMenuBtn").addEventListener("click", () => {
+  qs("#sidebar").classList.contains("mobile-open") ? closeMobileSidebar() : openMobileSidebar();
+});
+qs("#sidebarOverlay")?.addEventListener("click", closeMobileSidebar);
 
 ["#pipelineStateFilter","#pipelinePowerFilter"].forEach(s => qs(s)?.addEventListener("change", renderKanban));
 ["#networkRoleFilter","#networkStateFilter"].forEach(s => qs(s)?.addEventListener("change", renderNetwork));
