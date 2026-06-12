@@ -966,6 +966,9 @@ qs("#newLeadBtn").addEventListener("click",  openLead);
 qs("#newLeadBtn2").addEventListener("click", openLead);
 qs("#closeLeadModal").addEventListener("click",  () => qs("#leadModal").close());
 qs("#cancelLeadModal").addEventListener("click", () => qs("#leadModal").close());
+// Profile modal close buttons
+qs("#profileModalCloseX")?.addEventListener("click",  () => qs("#profileModal").close());
+qs("#profileModalCloseBtn")?.addEventListener("click", () => qs("#profileModal").close());
 
 qs("#saveLeadBtn").addEventListener("click", async () => {
   const name  = qs("#leadName").value.trim();
