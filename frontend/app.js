@@ -103,25 +103,14 @@ async function onLogin(session) {
   qs("#authScreen").classList.add("hidden");
   qs("#appShell").classList.remove("hidden");
   showLoading(true);
-  await loadTenant();
+  await loadProfile();
   await loadAllData();
   renderUI();
   lucide.createIcons();
   showLoading(false);
 }
 
-async function loadTenant() {
-  const { data } = await sb.from("profiles")
-    .select("*, tenants(*)")
-    .eq("id", currentUser.id)
-    .single();
-  if (data) {
-    currentTenant = data.tenants;
-    qs("#userName").textContent  = data.name || currentUser.email.split("@")[0];
-    qs("#userAvatar").textContent = (data.name || "?")[0].toUpperCase();
-    qs("#userPlan").textContent   = currentTenant?.plan || "Free";
-  }
-}
+// loadTenant replaced by loadProfile (see ADMIN section below)
 
 // ─── Login ────────────────────────────────────────────────────────────────────
 qs("#btnLogin").addEventListener("click", async () => {
@@ -612,42 +601,203 @@ async function managePortal() {
 }
 
 // ─── ADMIN ────────────────────────────────────────────────────────────────────
-function renderAdmin() {
-  const { data: profiles } = sb.from("profiles").select("*").eq("tenant_id", currentTenant?.id) || { data: [] };
 
-  // Mostra o usuário atual por enquanto
-  qs("#userTable").innerHTML = `
-    <div class="user-row">
-      <strong>${qs("#userName").textContent}</strong>
-      <span>${currentUser?.email} · owner</span>
-    </div>`;
+// Verifica se o usuário atual é admin (campo is_admin no profile)
+let currentProfile = null;
 
-  const perms = [
-    { label: "Visualizar leads",          checked: true  },
-    { label: "Comprar kits",              checked: true  },
-    { label: "Publicar kits",             checked: true  },
-    { label: "Comentar e avaliar perfis", checked: true  },
-    { label: "Gerenciar usuários",        checked: false },
-    { label: "Exportar dados",            checked: false },
-  ];
-  qs("#permissionList").innerHTML = perms.map(p => `
-    <label class="permission-item">
-      <span>${p.label}</span>
-      <span class="switch">
-        <input type="checkbox" ${p.checked ? "checked" : ""}/>
-        <span class="slider"></span>
-      </span>
-    </label>`).join("");
+async function loadProfile() {
+  const { data } = await sb.from("profiles")
+    .select("*, tenants(*)")
+    .eq("id", currentUser.id)
+    .single();
+  if (data) {
+    currentProfile = data;
+    currentTenant  = data.tenants;
+    qs("#userName").textContent  = data.name || currentUser.email.split("@")[0];
+    qs("#userAvatar").textContent = (data.name || "?")[0].toUpperCase();
+    qs("#userPlan").textContent   = currentTenant?.plan || "Free";
+  }
+  applyAdminVisibility();
+}
+
+function isAdmin() {
+  return currentProfile?.is_admin === true;
+}
+
+function applyAdminVisibility() {
+  const adminNavItem = qs('[data-view="admin"]');
+  if (adminNavItem) {
+    adminNavItem.style.display = isAdmin() ? "" : "none";
+  }
+}
+
+async function renderAdmin() {
+  if (!isAdmin()) {
+    toast("Acesso restrito a administradores.", "error");
+    switchView("dashboard");
+    return;
+  }
 
   if (currentTenant) {
     qs("#settingName").value  = currentTenant.name  || "";
     qs("#settingCity").value  = currentTenant.city  || "";
     qs("#settingState").value = currentTenant.state || "";
   }
+
+  await loadAdminUsers();
 }
 
+async function loadAdminUsers() {
+  const tableEl = qs("#userTable");
+  tableEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px">Carregando usuários…</div>`;
+
+  try {
+    // Busca todos os profiles + email via join com auth (service role necessário)
+    const { data: profiles, error } = await sb
+      .from("profiles")
+      .select("id, name, is_admin, tenant_id, tenants(name)")
+      .order("name");
+
+    if (error) throw error;
+
+    // Busca emails via admin API (funciona com service role key)
+    const { data: usersData, error: authErr } = await sb.auth.admin.listUsers();
+    const authUsers = usersData?.users || [];
+    const emailMap = Object.fromEntries(authUsers.map(u => [u.id, u.email]));
+
+    tableEl.innerHTML = profiles.map(p => {
+      const email = emailMap[p.id] || "–";
+      const name  = p.name || email.split("@")[0];
+      const admin = p.is_admin ? `<span class="tag" style="background:var(--leaf);color:#fff">admin</span>` : `<span class="tag">usuário</span>`;
+      return `
+        <div class="user-row" id="urow-${p.id}">
+          <div class="user-row-info">
+            <div class="user-avatar" style="width:36px;height:36px;font-size:13px;border-radius:10px;background:var(--leaf);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">${(name[0]||"?").toUpperCase()}</div>
+            <div>
+              <div style="font-weight:600;font-size:14px">${name}</div>
+              <div style="font-size:12px;color:var(--muted)">${email} · ${p.tenants?.name || "–"}</div>
+            </div>
+            ${admin}
+          </div>
+          <div class="user-row-actions">
+            <button class="btn-ghost sm" onclick="openEditUserModal('${p.id}','${escapeHtml(name)}','${email}',${!!p.is_admin})">
+              <i data-lucide="pencil"></i> Editar
+            </button>
+            ${p.id !== currentUser.id ? `
+            <button class="btn-ghost sm" style="color:var(--danger,#e53e3e)" onclick="confirmDeleteUser('${p.id}','${escapeHtml(name)}')">
+              <i data-lucide="trash-2"></i>
+            </button>` : ""}
+          </div>
+        </div>`;
+    }).join("") || `<p style="color:var(--muted);font-size:13px;padding:12px">Nenhum usuário encontrado.</p>`;
+
+    lucide.createIcons();
+  } catch (e) {
+    tableEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px">Erro ao carregar usuários: ${e.message}</div>`;
+    console.error("loadAdminUsers:", e);
+  }
+}
+
+// ─── Modal criar/editar usuário ───────────────────────────────────────────────
+window.openCreateUserModal = () => {
+  qs("#userModalTitle").textContent   = "Criar usuário";
+  qs("#userModalId").value            = "";
+  qs("#userModalName").value          = "";
+  qs("#userModalEmail").value         = "";
+  qs("#userModalPassword").value      = "";
+  qs("#userModalIsAdmin").checked     = false;
+  qs("#userModalPasswordRow").style.display = "";
+  qs("#userModal").showModal();
+  lucide.createIcons();
+};
+
+window.openEditUserModal = (id, name, email, isAdminVal) => {
+  qs("#userModalTitle").textContent   = "Editar usuário";
+  qs("#userModalId").value            = id;
+  qs("#userModalName").value          = name;
+  qs("#userModalEmail").value         = email;
+  qs("#userModalPassword").value      = "";
+  qs("#userModalIsAdmin").checked     = isAdminVal;
+  qs("#userModalPasswordRow").style.display = "";
+  qs("#userModal").showModal();
+  lucide.createIcons();
+};
+
+qs("#closeUserModal")?.addEventListener("click",  () => qs("#userModal").close());
+qs("#cancelUserModal")?.addEventListener("click", () => qs("#userModal").close());
+
+qs("#saveUserBtn")?.addEventListener("click", async () => {
+  const id       = qs("#userModalId").value.trim();
+  const name     = qs("#userModalName").value.trim();
+  const email    = qs("#userModalEmail").value.trim();
+  const password = qs("#userModalPassword").value;
+  const isAdminVal = qs("#userModalIsAdmin").checked;
+
+  if (!email) { toast("Informe o e-mail.", "error"); return; }
+  setLoading("#saveUserBtn", "Salvando…");
+
+  try {
+    if (id) {
+      // ── EDITAR usuário existente ──
+      const updatePayload = { email };
+      if (password) updatePayload.password = password;
+
+      const { error: authErr } = await sb.auth.admin.updateUserById(id, updatePayload);
+      if (authErr) throw authErr;
+
+      const { error: profErr } = await sb.from("profiles")
+        .update({ name, is_admin: isAdminVal })
+        .eq("id", id);
+      if (profErr) throw profErr;
+
+      toast("Usuário atualizado!");
+    } else {
+      // ── CRIAR novo usuário ──
+      if (!password) { toast("Informe a senha para o novo usuário.", "error"); resetBtn("#saveUserBtn", "Salvar"); return; }
+
+      const { data: newUser, error: createErr } = await sb.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { name, tenant_id: currentTenant?.id },
+      });
+      if (createErr) throw createErr;
+
+      // Cria perfil associado ao mesmo tenant
+      await sb.from("profiles").upsert({
+        id:        newUser.user.id,
+        name,
+        is_admin:  isAdminVal,
+        tenant_id: currentTenant?.id,
+      });
+
+      toast("Usuário criado com sucesso!");
+    }
+
+    qs("#userModal").close();
+    await loadAdminUsers();
+  } catch (e) {
+    toast("Erro: " + e.message, "error");
+  }
+
+  resetBtn("#saveUserBtn", "Salvar");
+});
+
+window.confirmDeleteUser = async (id, name) => {
+  if (!confirm(`Excluir o usuário "${name}"? Esta ação não pode ser desfeita.`)) return;
+  try {
+    const { error } = await sb.auth.admin.deleteUser(id);
+    if (error) throw error;
+    await sb.from("profiles").delete().eq("id", id);
+    toast(`Usuário "${name}" excluído.`);
+    await loadAdminUsers();
+  } catch (e) {
+    toast("Erro ao excluir: " + e.message, "error");
+  }
+};
+
 // ─── Save tenant settings ─────────────────────────────────────────────────────
-qs("#viewAdmin")?.querySelector(".btn-primary")?.addEventListener("click", async () => {
+qs("#btnSaveTenantSettings")?.addEventListener("click", async () => {
   const name  = qs("#settingName").value.trim();
   const city  = qs("#settingCity").value.trim();
   const state = qs("#settingState").value.trim().toUpperCase();
