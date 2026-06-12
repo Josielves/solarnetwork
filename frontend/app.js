@@ -4,15 +4,15 @@
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const SUPABASE_URL      = "https://xvzqsusaaccjeewfsnev.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2enFzdXNhYWNjamVld2ZzbmV2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDkzNTA4NiwiZXhwIjoyMDk2NTExMDg2fQ.oycjFk28DgIsUezX0g8jkO6Ul4N84lSM9cY8FLoNoxY"; // ← sua anon key
-const BACKEND_URL       = "https://solarnetwork-production.up.railway.app";
+const SUPABASE_ANON_KEY = "COLE_SUA_ANON_KEY_AQUI"; // ← sua anon key
+const BACKEND_URL       = "COLE_URL_DO_RAILWAY_AQUI"; // ← ex: https://isolar-backend.up.railway.app
+
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let currentUser   = null;
 let currentTenant = null;
-let currentProfile = null;
 let authToken     = null;
 let appData = { leads: [], kits: [], activities: [], tenants: [], messages: [] };
 let chartInstance = null;
@@ -73,7 +73,7 @@ function switchView(viewId) {
   qsa(".view").forEach(v => v.classList.toggle("active", v.id === "view" + cap(viewId)));
   qs("#pageTitle").textContent = {
     dashboard: "Dashboard", pipeline: "Pipeline", network: "Network",
-    marketplace: "Marketplace", whatsapp: "WhatsApp",
+    marketplace: "Marketplace", chat: "Chat", whatsapp: "WhatsApp",
     subscription: "Assinatura", admin: "Administração"
   }[viewId] || viewId;
 }
@@ -116,17 +116,7 @@ async function loadTenant() {
     .eq("id", currentUser.id)
     .single();
   if (data) {
-    currentTenant  = data.tenants;
-    currentProfile = data;
-
-    // Sincroniza telefone vindo do cadastro (user_metadata) caso a coluna
-    // profiles.phone ainda esteja vazia (ex.: trigger não copiou ainda).
-    const metaPhone = currentUser.user_metadata?.phone;
-    if (!currentProfile.phone && metaPhone) {
-      const { error } = await sb.from("profiles").update({ phone: metaPhone }).eq("id", currentUser.id);
-      if (!error) currentProfile.phone = metaPhone;
-    }
-
+    currentTenant = data.tenants;
     qs("#userName").textContent  = data.name || currentUser.email.split("@")[0];
     qs("#userAvatar").textContent = (data.name || "?")[0].toUpperCase();
     qs("#userPlan").textContent   = currentTenant?.plan || "Free";
@@ -161,7 +151,6 @@ qs("#btnSignup").addEventListener("click", async () => {
   const company  = qs("#signupCompany").value.trim();
   const name     = qs("#signupName").value.trim();
   const email    = qs("#signupEmail").value.trim();
-  const phone    = qs("#signupPhone").value.trim();
   const pass     = qs("#signupPassword").value;
   const role     = qs("#signupRole").value;
   if (!company || !name || !email || !pass) {
@@ -178,7 +167,7 @@ qs("#btnSignup").addEventListener("click", async () => {
 
   const { error: uErr } = await sb.auth.signUp({
     email, password: pass,
-    options: { data: { name, phone, tenant_id: tenant.id } },
+    options: { data: { name, tenant_id: tenant.id } },
   });
   resetBtn("#btnSignup", "Criar conta grátis");
   if (uErr) showAuthError("signupError", uErr.message);
@@ -431,7 +420,10 @@ function renderNetwork() {
       <p style="font-size:12px;margin:4px 0">${t.city||""}${t.city&&t.state?"/":""}${t.state||""}</p>
       ${t.comment ? `<div class="comment-box">${t.comment}</div>` : ""}
       <div class="tag-row">${(t.permissions||[]).map(p=>`<span class="tag">${p}</span>`).join("")}</div>
-      <button class="btn-primary" style="width:100%;justify-content:center" onclick="openProfile('${t.id}')">Abrir perfil</button>
+      <button class="btn-primary" style="width:100%;justify-content:center"
+        onclick="openProfileModal(${JSON.stringify(t).replace(/"/g, "&quot;")})">
+        Abrir perfil
+      </button>
     </article>`).join("") || `<p style="color:var(--muted)">Nenhuma empresa encontrada.</p>`;
 
   const rf = qs("#networkRoleFilter");
@@ -491,14 +483,17 @@ function updateWABadge(status, phone) {
 }
 
 function showQR(qrDataUrl) {
-  let qrEl = qs("#waQR");
-  if (!qrEl) {
-    qrEl = document.createElement("img");
-    qrEl.id = "waQR";
-    qrEl.style.cssText = "display:block;width:220px;height:220px;border-radius:12px;margin:16px auto;border:4px solid var(--border)";
-    qs(".wa-status").appendChild(qrEl);
+  const container = qs("#waQRContainer");
+  const img       = qs("#waQRImg");
+  if (container && img) {
+    img.src = qrDataUrl;
+    container.style.display = "block";
   }
-  qrEl.src = qrDataUrl;
+}
+
+function hideQR() {
+  const container = qs("#waQRContainer");
+  if (container) container.style.display = "none";
 }
 
 let waPolling = null;
@@ -524,18 +519,17 @@ async function connectWA() {
     clearInterval(waPolling);
     waPolling = setInterval(async () => {
       try {
-        const { status, qr, phone, error } = await api("/api/whatsapp/status");
+        const { status, qr, phone } = await api("/api/whatsapp/status");
         updateWABadge(status, phone);
         if (qr) showQR(qr);
         if (status === "connected") {
           clearInterval(waPolling);
-          qs("#waQR")?.remove();
+          hideQR();
           toast("WhatsApp conectado!");
           loadWAMessages();
         }
         if (status === "disconnected") {
           clearInterval(waPolling);
-          if (error) toast("WhatsApp: " + error, "error");
         }
       } catch (e) { console.warn("WA poll:", e.message); }
     }, 3000);
@@ -558,7 +552,7 @@ async function disconnectWA() {
   try {
     await api("/api/whatsapp/disconnect", { method: "POST" });
     updateWABadge("disconnected");
-    qs("#waQR")?.remove();
+    hideQR();
     toast("WhatsApp desconectado.");
   } catch (e) { toast(e.message, "error"); }
 }
@@ -625,7 +619,7 @@ function renderAdmin() {
   qs("#userTable").innerHTML = `
     <div class="user-row">
       <strong>${qs("#userName").textContent}</strong>
-      <span>${currentUser?.email}${currentProfile?.phone ? " · " + currentProfile.phone : ""} · owner</span>
+      <span>${currentUser?.email} · owner</span>
     </div>`;
 
   const perms = [
@@ -650,14 +644,10 @@ function renderAdmin() {
     qs("#settingCity").value  = currentTenant.city  || "";
     qs("#settingState").value = currentTenant.state || "";
   }
-  if (currentProfile) {
-    qs("#profileName").value  = currentProfile.name  || "";
-    qs("#profilePhone").value = currentProfile.phone || "";
-  }
 }
 
 // ─── Save tenant settings ─────────────────────────────────────────────────────
-qs("#btnSaveTenant")?.addEventListener("click", async () => {
+qs("#viewAdmin")?.querySelector(".btn-primary")?.addEventListener("click", async () => {
   const name  = qs("#settingName").value.trim();
   const city  = qs("#settingCity").value.trim();
   const state = qs("#settingState").value.trim().toUpperCase();
@@ -665,24 +655,6 @@ qs("#btnSaveTenant")?.addEventListener("click", async () => {
   const { error } = await sb.from("tenants").update({ name, city, state }).eq("id", currentTenant.id);
   if (!error) { currentTenant.name = name; currentTenant.city = city; currentTenant.state = state; toast("Salvo!"); }
   else toast(error.message, "error");
-});
-
-// ─── Save profile (nome + telefone) ───────────────────────────────────────────
-qs("#btnSaveProfile")?.addEventListener("click", async () => {
-  const name  = qs("#profileName").value.trim();
-  const phone = qs("#profilePhone").value.trim();
-  if (!name) return toast("Informe seu nome.", "error");
-  const { error } = await sb.from("profiles").update({ name, phone }).eq("id", currentUser.id);
-  if (!error) {
-    currentProfile.name  = name;
-    currentProfile.phone = phone;
-    qs("#userName").textContent   = name;
-    qs("#userAvatar").textContent = name[0].toUpperCase();
-    renderAdmin();
-    toast("Perfil salvo!");
-  } else {
-    toast(error.message, "error");
-  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -727,6 +699,274 @@ qs("#saveLeadBtn").addEventListener("click", async () => {
   lucide.createIcons();
 });
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHAT — Realtime via Supabase
+// ═══════════════════════════════════════════════════════════════════════════
+let activeConvId   = null;
+let chatChannel    = null;
+let conversations  = [];
+
+async function loadChat() {
+  if (!currentTenant) return;
+  await loadConversations();
+  subscribeToChat();
+}
+
+async function loadConversations() {
+  const { data, error } = await sb
+    .from("chat_conversations")
+    .select(`
+      id, last_message, last_at,
+      tenant_a:tenant_a(id, name, initials, role),
+      tenant_b:tenant_b(id, name, initials, role)
+    `)
+    .or(`tenant_a.eq.${currentTenant.id},tenant_b.eq.${currentTenant.id}`)
+    .order("last_at", { ascending: false });
+
+  if (error) { console.error("Chat:", error.message); return; }
+  conversations = data || [];
+  renderConversationList();
+}
+
+function renderConversationList(filter = "") {
+  const list = qs("#conversationList");
+  const filtered = conversations.filter(c => {
+    const other = getOtherTenant(c);
+    return !filter || other.name.toLowerCase().includes(filter.toLowerCase());
+  });
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="chat-empty">
+      <i data-lucide="messages-square"></i>
+      <p>Nenhuma conversa ainda.<br/>Clique em "Nova" para começar.</p>
+    </div>`;
+    lucide.createIcons();
+    return;
+  }
+
+  list.innerHTML = filtered.map(c => {
+    const other = getOtherTenant(c);
+    const time  = c.last_at ? new Date(c.last_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+    return `<div class="conv-item ${c.id === activeConvId ? "active" : ""}"
+      onclick="openConversation('${c.id}')">
+      <div class="conv-avatar">${other.initials || "?"}</div>
+      <div class="conv-info">
+        <div class="conv-name">${other.name}</div>
+        <div class="conv-preview">${c.last_message || "Iniciar conversa…"}</div>
+      </div>
+      <div class="conv-meta">
+        <span class="conv-time">${time}</span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function getOtherTenant(conv) {
+  return conv.tenant_a?.id === currentTenant.id ? conv.tenant_b : conv.tenant_a;
+}
+
+async function openConversation(convId) {
+  activeConvId = convId;
+  renderConversationList();
+
+  const conv = conversations.find(c => c.id === convId);
+  const other = getOtherTenant(conv);
+
+  const win = qs("#chatWindow");
+  win.innerHTML = `
+    <div class="chat-header">
+      <div class="conv-avatar">${other.initials || "?"}</div>
+      <div class="chat-header-info">
+        <div class="chat-header-name">${other.name}</div>
+        <div class="chat-header-role">${other.role || ""}</div>
+      </div>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-bar">
+      <textarea id="chatInput" placeholder="Digite uma mensagem…" rows="1"></textarea>
+      <button class="send-btn" id="sendMsgBtn">
+        <i data-lucide="send"></i>
+      </button>
+    </div>`;
+  lucide.createIcons();
+
+  await loadMessages(convId);
+
+  qs("#sendMsgBtn").addEventListener("click", sendMessage);
+  qs("#chatInput").addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  // Auto-resize textarea
+  qs("#chatInput").addEventListener("input", function() {
+    this.style.height = "auto";
+    this.style.height = Math.min(this.scrollHeight, 120) + "px";
+  });
+}
+
+async function loadMessages(convId) {
+  const { data } = await sb
+    .from("chat_messages")
+    .select("*")
+    .eq("conversation_id", convId)
+    .order("created_at", { ascending: true });
+
+  renderMessages(data || []);
+
+  // Mark as read
+  await sb.from("chat_messages")
+    .update({ read: true })
+    .eq("conversation_id", convId)
+    .neq("sender_id", currentTenant.id);
+}
+
+function renderMessages(msgs) {
+  const el = qs("#chatMessages");
+  if (!el) return;
+  el.innerHTML = msgs.map(m => {
+    const out  = m.sender_id === currentTenant.id;
+    const time = new Date(m.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    return `<div class="msg ${out ? "out" : "in"}">
+      <div class="msg-bubble">${escapeHtml(m.body)}</div>
+      <div class="msg-time">${time}</div>
+    </div>`;
+  }).join("");
+  el.scrollTop = el.scrollHeight;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+async function sendMessage() {
+  const input = qs("#chatInput");
+  const body  = input?.value.trim();
+  if (!body || !activeConvId) return;
+
+  input.value = "";
+  input.style.height = "auto";
+
+  const { error } = await sb.from("chat_messages").insert({
+    conversation_id: activeConvId,
+    sender_id:       currentTenant.id,
+    body,
+    read: false,
+  });
+
+  if (error) { toast(error.message, "error"); return; }
+
+  // Update conversation last_message
+  await sb.from("chat_conversations")
+    .update({ last_message: body, last_at: new Date().toISOString() })
+    .eq("id", activeConvId);
+}
+
+function subscribeToChat() {
+  if (chatChannel) sb.removeChannel(chatChannel);
+
+  chatChannel = sb
+    .channel("chat-" + currentTenant.id)
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "chat_messages",
+    }, async (payload) => {
+      const msg = payload.new;
+
+      // Se é da conversa aberta, adiciona na tela
+      if (msg.conversation_id === activeConvId) {
+        const el = qs("#chatMessages");
+        if (el) {
+          const out  = msg.sender_id === currentTenant.id;
+          const time = new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+          el.insertAdjacentHTML("beforeend", `
+            <div class="msg ${out ? "out" : "in"}">
+              <div class="msg-bubble">${escapeHtml(msg.body)}</div>
+              <div class="msg-time">${time}</div>
+            </div>`);
+          el.scrollTop = el.scrollHeight;
+        }
+      } else {
+        // Notificação de nova mensagem
+        toast("Nova mensagem recebida!", "success");
+      }
+
+      // Atualiza lista de conversas
+      await loadConversations();
+    })
+    .subscribe();
+}
+
+// ─── Modal nova conversa ──────────────────────────────────────────────────────
+let selectedTenantId = null;
+
+qs("#newChatBtn")?.addEventListener("click", () => {
+  selectedTenantId = null;
+  renderTenantOptions("");
+  qs("#newChatModal").showModal();
+  lucide.createIcons();
+});
+qs("#closeNewChatModal")?.addEventListener("click", () => qs("#newChatModal").close());
+qs("#cancelNewChat")?.addEventListener("click",    () => qs("#newChatModal").close());
+
+qs("#newChatSearch")?.addEventListener("input", e => renderTenantOptions(e.target.value));
+
+function renderTenantOptions(filter) {
+  const list = qs("#tenantOptionList");
+  const opts = appData.tenants.filter(t =>
+    t.id !== currentTenant?.id &&
+    (!filter || t.name.toLowerCase().includes(filter.toLowerCase()))
+  );
+  list.innerHTML = opts.map(t => `
+    <div class="tenant-option ${selectedTenantId === t.id ? "selected" : ""}"
+      onclick="selectTenantForChat('${t.id}')">
+      <div class="conv-avatar" style="width:36px;height:36px;font-size:12px">${t.initials || "?"}</div>
+      <div>
+        <div style="font-size:13px;font-weight:700">${t.name}</div>
+        <div style="font-size:12px;color:var(--muted)">${t.role} · ${t.city || ""}${t.state ? "/" + t.state : ""}</div>
+      </div>
+    </div>`).join("") || `<p style="color:var(--muted);font-size:13px;padding:12px">Nenhuma empresa encontrada.</p>`;
+}
+
+window.selectTenantForChat = (tenantId) => {
+  selectedTenantId = tenantId;
+  renderTenantOptions(qs("#newChatSearch")?.value || "");
+};
+
+qs("#startChatBtn")?.addEventListener("click", async () => {
+  if (!selectedTenantId) { toast("Selecione uma empresa.", "error"); return; }
+
+  // Verifica se conversa já existe
+  const existing = conversations.find(c =>
+    (c.tenant_a?.id === selectedTenantId || c.tenant_b?.id === selectedTenantId)
+  );
+  if (existing) {
+    qs("#newChatModal").close();
+    openConversation(existing.id);
+    return;
+  }
+
+  // Cria nova conversa
+  const { data, error } = await sb.from("chat_conversations").insert({
+    tenant_a: currentTenant.id,
+    tenant_b: selectedTenantId,
+    last_message: null,
+  }).select(`
+    id, last_message, last_at,
+    tenant_a:tenant_a(id, name, initials, role),
+    tenant_b:tenant_b(id, name, initials, role)
+  `).single();
+
+  if (error) { toast(error.message, "error"); return; }
+
+  conversations.unshift(data);
+  renderConversationList();
+  qs("#newChatModal").close();
+  openConversation(data.id);
+  toast("Conversa iniciada!");
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // NAVIGATION & EVENTS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -738,6 +978,7 @@ qsa(".nav-item").forEach(btn => {
     if (v === "pipeline")     renderKanban();
     if (v === "network")      renderNetwork();
     if (v === "marketplace")  renderMarketplace();
+    if (v === "chat")         { loadChat(); }
     if (v === "whatsapp")     { loadWAStatus(); loadWAMessages(); }
     if (v === "subscription") renderSubscription();
     if (v === "admin")        renderAdmin();
@@ -806,39 +1047,6 @@ qs("#saveKitBtn").addEventListener("click", async () => {
   resetBtn("#saveKitBtn", '<i data-lucide="save"></i> Publicar kit');
   lucide.createIcons();
 });
-
-// ═══════════════════════════════════════════════════════════════════════════
-// PROFILE MODAL (Network)
-// ═══════════════════════════════════════════════════════════════════════════
-window.openProfile = (tenantId) => {
-  const t = appData.tenants.find(x => String(x.id) === String(tenantId));
-  if (!t) return toast("Empresa não encontrada.", "error");
-
-  qs("#profileModalName").textContent   = t.name || "–";
-  qs("#profileModalAvatar").textContent = t.initials || "iS";
-  qs("#profileModalRole").textContent   = t.role || "–";
-  qs("#profileModalStars").textContent  = stars(t.rating);
-  qs("#profileModalRating").textContent = Number(t.rating || 0).toFixed(1);
-  qs("#profileModalLocation").textContent =
-    `${t.city || ""}${t.city && t.state ? "/" : ""}${t.state || ""}` || "Localização não informada";
-
-  const commentEl = qs("#profileModalComment");
-  if (t.comment) {
-    commentEl.textContent = t.comment;
-    commentEl.classList.remove("hidden");
-  } else {
-    commentEl.classList.add("hidden");
-  }
-
-  qs("#profileModalTags").innerHTML = (t.permissions || [])
-    .map(p => `<span class="tag">${p}</span>`).join("") || "";
-
-  qs("#profileModal").showModal();
-  lucide.createIcons();
-};
-
-qs("#closeProfileModal")?.addEventListener("click",  () => qs("#profileModal").close());
-qs("#closeProfileModal2")?.addEventListener("click", () => qs("#profileModal").close());
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
