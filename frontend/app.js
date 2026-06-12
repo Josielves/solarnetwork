@@ -733,6 +733,10 @@ async function loadConversations() {
     .select("id, name, initials, role, city, state")
     .in("id", tenantIds);
 
+  console.log("[Chat] convRows:", convRows);
+  console.log("[Chat] tenantIds buscados:", tenantIds);
+  console.log("[Chat] tenantRows retornados:", tenantRows);
+  console.log("[Chat] currentTenant:", currentTenant);
   const tenantMap = Object.fromEntries((tenantRows || []).map(t => [t.id, t]));
   // Garante que o tenant atual está no mapa (fallback local)
   if (currentTenant?.id && !tenantMap[currentTenant.id]) {
