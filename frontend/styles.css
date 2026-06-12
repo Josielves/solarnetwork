@@ -61,7 +61,7 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden; /* evita scroll horizontal */
+  overflow-x: hidden;
 }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; border: none; background: none; }
@@ -216,7 +216,6 @@ p { color: var(--ink2); }
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
   min-height: 100vh;
-  /* NÃO usar overflow:hidden aqui — quebra position:sticky do sidebar e topbar */
   transition: grid-template-columns var(--transition);
 }
 .app-shell.collapsed { --sidebar-w: 64px; }
@@ -229,7 +228,6 @@ p { color: var(--ink2); }
   overflow: hidden;
   transition: width var(--transition);
   width: var(--sidebar-w);
-  /* Sem z-index no desktop — fica no grid flow normalmente */
 }
 
 .sidebar-top {
@@ -308,7 +306,6 @@ p { color: var(--ink2); }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   background: var(--panel); border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 40;
-  width: 100%;
 }
 .topbar-left { display: flex; align-items: center; gap: 12px; }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
@@ -655,12 +652,8 @@ p { color: var(--ink2); }
   border: 1px solid var(--border); border-radius: 14px;
   padding: 0; background: var(--panel);
   box-shadow: var(--shadow-lg);
-  /* <dialog> com showModal() fica no top layer automaticamente */
 }
-.modal::backdrop {
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(4px);
-}
+.modal::backdrop { background: rgba(0,0,0,.55); backdrop-filter: blur(4px); }
 .modal-header {
   display: flex; align-items: flex-start; justify-content: space-between;
   padding: 22px 24px 0;
@@ -694,8 +687,8 @@ p { color: var(--ink2); }
    RESPONSIVE
    ═══════════════════════════════════════════════════════════════ */
 
-/* ─── Tablet grande (≤1024px) ───────────────────────────────── */
-@media (max-width: 1024px) {
+/* ─── Tablet grande (≤1200px) ───────────────────────────────── */
+@media (max-width: 1100px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .dash-grid { grid-template-columns: 1fr; }
   .panel-chart,.panel-funnel,.panel-activity,.panel-kits { grid-column: 1; grid-row: auto; }
@@ -795,18 +788,22 @@ p { color: var(--ink2); }
   .form-row { flex-direction: column; gap: 10px; }
   .modal-body .form-row { flex-direction: column; }
 
-  /* Modal — bottom sheet em mobile */
+  /* Modal — tela cheia em mobile */
   .modal {
     width: 100vw;
     max-height: 92dvh;
     border-radius: 20px 20px 0 0;
-    top: auto !important;
+    position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    transform: none !important;
+    top: auto !important;
     margin: 0 !important;
     overflow-y: auto;
+  }
+  dialog.modal { /* reset de position do <dialog> */
+    inset: auto 0 0 0;
+    transform: none !important;
   }
   .modal-header { padding: 16px 16px 0; }
   .modal-body { padding: 14px 16px; }
@@ -841,23 +838,16 @@ p { color: var(--ink2); }
   .user-row { flex-wrap: wrap; gap: 8px; }
   .user-row-actions { width: 100%; justify-content: flex-end; }
 
-  /* Sidebar toggle — esconde em mobile (usa hamburger) */
+  /* Esconde toggle recolher (usa hamburger no mobile) */
   .sidebar-toggle { display: none; }
 
-  /* dialog.modal — garante bottom sheet em mobile */
-  dialog.modal {
-    inset: auto 0 0 0;
-    transform: none !important;
-    border-bottom: none;
-  }
-
-  /* Aumenta área de toque nos botões de nav */
+  /* Área de toque maior */
   .nav-item { height: 46px; }
 
-  /* Scroll suave no nav */
+  /* Scroll touch suave */
   .nav-list { -webkit-overflow-scrolling: touch; }
 
-  /* KPI delta — não quebra linha */
+  /* KPI delta não quebra */
   .kpi-delta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
@@ -1087,12 +1077,7 @@ p { color: var(--ink2); }
   display: flex;
   flex-direction: column;
 }
-/* Footer sempre visível e clicável */
-.profile-modal-wide .modal-footer {
-  flex-shrink: 0;
-  position: relative;
-  z-index: 2;
-}
+.profile-modal-wide .modal-footer { flex-shrink: 0; }
 
 /* Hero */
 .profile-modal-hero {
@@ -1349,8 +1334,6 @@ p { color: var(--ink2); }
 .profile-match-chip svg { width: 11px; height: 11px; }
 
 /* ─── Responsive ajustes ───────────────────────────────────── */
-
-/* ─── Profile modal mobile ─────────────────────────────────── */
 @media (max-width: 768px) {
   .profile-modal-wide {
     width: 100vw;
@@ -1363,16 +1346,4 @@ p { color: var(--ink2); }
   .match-badge { display: none; }
   .profile-modal-tabs { padding: 0 12px; overflow-x: auto; }
   .pmt { padding: 10px 12px; white-space: nowrap; }
-
-  /* Hero compacto */
-  .profile-modal-hero { gap: 12px; padding: 16px 16px 0; }
-  .profile-modal-avatar { width: 44px; height: 44px; font-size: 15px; }
-  .profile-modal-identity h2 { font-size: 15px; }
-
-  /* Rep form empilha critérios */
-  .rep-crit-row { flex-direction: column; align-items: flex-start; gap: 6px; }
-
-  /* Feed compose compacto */
-  .feed-compose-type { gap: 4px; }
-  .fct { height: 26px; padding: 0 8px; font-size: 10px; }
 }
