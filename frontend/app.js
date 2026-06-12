@@ -825,26 +825,40 @@ async function openConversation(convId) {
 }
 
 async function loadMessages(convId) {
-  const { data } = await sb
+  const { data, error } = await sb
     .from("chat_messages")
     .select("*")
     .eq("conversation_id", convId)
     .order("created_at", { ascending: true });
 
+  if (error) { console.error("loadMessages:", error.message); return; }
   renderMessages(data || []);
 
-  // Mark as read
+  // Mark as read — usa tenant_id se existir, senão user id
+  const myId = currentTenant.id;
   await sb.from("chat_messages")
     .update({ read: true })
     .eq("conversation_id", convId)
-    .neq("sender_id", currentTenant.id);
+    .neq("sender_id", myId);
 }
 
 function renderMessages(msgs) {
   const el = qs("#chatMessages");
   if (!el) return;
+
+  if (!msgs.length) {
+    el.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:24px">
+      Nenhuma mensagem ainda. Diga oi! 👋
+    </div>`;
+    return;
+  }
+
+  // sender_id pode ser tenant_id ou user_id dependendo de quem enviou
+  // considera "minha" se bater com currentTenant.id OU currentUser.id
+  const myIds = new Set([currentTenant.id, currentUser?.id].filter(Boolean));
+
   el.innerHTML = msgs.map(m => {
-    const out  = m.sender_id === currentTenant.id;
+    const out  = myIds.has(m.sender_id);
     const time = new Date(m.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     return `<div class="msg ${out ? "out" : "in"}">
       <div class="msg-bubble">${escapeHtml(m.body)}</div>
@@ -866,6 +880,19 @@ async function sendMessage() {
   input.value = "";
   input.style.height = "auto";
 
+  // Adiciona otimisticamente na tela antes de salvar
+  const el = qs("#chatMessages");
+  const now = new Date();
+  const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  if (el) {
+    el.insertAdjacentHTML("beforeend", `
+      <div class="msg out pending">
+        <div class="msg-bubble">${escapeHtml(body)}</div>
+        <div class="msg-time">${time}</div>
+      </div>`);
+    el.scrollTop = el.scrollHeight;
+  }
+
   const { error } = await sb.from("chat_messages").insert({
     conversation_id: activeConvId,
     sender_id:       currentTenant.id,
@@ -873,12 +900,26 @@ async function sendMessage() {
     read: false,
   });
 
-  if (error) { toast(error.message, "error"); return; }
+  if (error) {
+    toast(error.message, "error");
+    // Remove a mensagem otimista em caso de erro
+    el?.querySelector(".msg.out.pending")?.remove();
+    input.value = body;
+    return;
+  }
 
-  // Update conversation last_message
+  // Remove classe pending (mensagem confirmada)
+  el?.querySelector(".msg.out.pending")?.classList.remove("pending");
+
+  // Atualiza last_message da conversa
   await sb.from("chat_conversations")
-    .update({ last_message: body, last_at: new Date().toISOString() })
+    .update({ last_message: body, last_at: now.toISOString() })
     .eq("id", activeConvId);
+
+  // Atualiza localmente o preview da lista
+  const conv = conversations.find(c => c.id === activeConvId);
+  if (conv) { conv.last_message = body; conv.last_at = now.toISOString(); }
+  renderConversationList();
 }
 
 function subscribeToChat() {
@@ -897,14 +938,18 @@ function subscribeToChat() {
       if (msg.conversation_id === activeConvId) {
         const el = qs("#chatMessages");
         if (el) {
-          const out  = msg.sender_id === currentTenant.id;
-          const time = new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-          el.insertAdjacentHTML("beforeend", `
-            <div class="msg ${out ? "out" : "in"}">
-              <div class="msg-bubble">${escapeHtml(msg.body)}</div>
-              <div class="msg-time">${time}</div>
-            </div>`);
-          el.scrollTop = el.scrollHeight;
+          const myIds = new Set([currentTenant.id, currentUser?.id].filter(Boolean));
+          const out  = myIds.has(msg.sender_id);
+          // Se já foi adicionado otimisticamente (out), não duplica
+          if (!out) {
+            const time = new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            el.insertAdjacentHTML("beforeend", `
+              <div class="msg in">
+                <div class="msg-bubble">${escapeHtml(msg.body)}</div>
+                <div class="msg-time">${time}</div>
+              </div>`);
+            el.scrollTop = el.scrollHeight;
+          }
         }
       } else {
         // Notificação de nova mensagem
