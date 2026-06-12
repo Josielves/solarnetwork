@@ -672,7 +672,7 @@
       </div>
       <span class="match-label">compatível</span>
     </div>
-    <button class="icon-btn profile-modal-close" onclick="document.getElementById('profileModal').close()">
+    <button class="icon-btn profile-modal-close" id="profileModalCloseX">
       <i data-lucide="x"></i>
     </button>
   </div>
@@ -781,7 +781,7 @@
   </div>
 
   <div class="modal-footer">
-    <button class="btn-ghost" onclick="document.getElementById('profileModal').close()">Fechar</button>
+    <button class="btn-ghost" id="profileModalCloseBtn">Fechar</button>
     <button class="btn-primary" id="profileModalChatBtn">
       <i data-lucide="message-square"></i> Iniciar conversa
     </button>
