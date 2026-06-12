@@ -393,8 +393,11 @@ function renderNetwork() {
     return (!roleF || t.role === roleF) && (!stateF || t.state === stateF) && (!search || blob.includes(search));
   });
 
-  qs("#profileGrid").innerHTML = list.map(t => `
-    <article class="profile-card">
+  qs("#profileGrid").innerHTML = list.map(t => {
+    const loc = `${t.city||""}${t.city&&t.state?"/":""}${t.state||""}`;
+    const tenantJson = JSON.stringify(t).replace(/"/g, "&quot;");
+    return `
+    <article class="profile-card profile-card--clickable" onclick="openProfileModal(${tenantJson})" title="Ver perfil de ${t.name}">
       <div class="profile-top">
         <span class="avatar">${t.initials || "iS"}</span>
         <div>
@@ -406,14 +409,15 @@ function renderNetwork() {
         <span class="stars">${stars(t.rating)}</span>
         <span class="rating-val">${Number(t.rating||0).toFixed(1)}</span>
       </div>
-      <p style="font-size:12px;margin:4px 0">${t.city||""}${t.city&&t.state?"/":""}${t.state||""}</p>
+      ${loc ? `<p style="font-size:12px;margin:4px 0;color:var(--muted);display:flex;align-items:center;gap:4px"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${loc}</p>` : ""}
       ${t.comment ? `<div class="comment-box">${t.comment}</div>` : ""}
       <div class="tag-row">${(t.permissions||[]).map(p=>`<span class="tag">${p}</span>`).join("")}</div>
-      <button class="btn-primary" style="width:100%;justify-content:center"
-        onclick="openProfileModal(${JSON.stringify(t).replace(/"/g, "&quot;")})">
-        Abrir perfil
-      </button>
-    </article>`).join("") || `<p style="color:var(--muted)">Nenhuma empresa encontrada.</p>`;
+      <div style="margin-top:auto;padding-top:8px;font-size:12px;color:var(--leaf);font-weight:600;display:flex;align-items:center;gap:4px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Ver perfil completo
+      </div>
+    </article>`;
+  }).join("") || `<p style="color:var(--muted)">Nenhuma empresa encontrada.</p>`;
 
   const rf = qs("#networkRoleFilter");
   const sf2 = qs("#networkStateFilter");
@@ -762,7 +766,9 @@ async function loadAdminUsers() {
     tableEl.innerHTML = profiles.map(p => {
       const email = p.email || "–";
       const name  = p.name || email.split("@")[0];
+      const role  = p.tenant_role || "";
       const admin = p.is_admin ? `<span class="tag" style="background:var(--leaf);color:#fff">admin</span>` : `<span class="tag">usuário</span>`;
+      const roleBadge = role ? `<span class="tag" style="background:var(--accent,#f5a623);color:#fff">${role}</span>` : "";
       return `
         <div class="user-row" id="urow-${p.id}">
           <div class="user-row-info">
@@ -771,10 +777,10 @@ async function loadAdminUsers() {
               <div style="font-weight:600;font-size:14px">${name}</div>
               <div style="font-size:12px;color:var(--muted)">${email} · ${p.tenant_name || "–"}</div>
             </div>
-            ${admin}
+            ${admin}${roleBadge}
           </div>
           <div class="user-row-actions">
-            <button class="btn-ghost sm" onclick="openEditUserModal('${p.id}','${escapeHtml(name)}','${email}',${!!p.is_admin})">
+            <button class="btn-ghost sm" onclick="openEditUserModal('${p.id}','${escapeHtml(name)}','${email}',${!!p.is_admin},'${escapeHtml(role)}')">
               <i data-lucide="pencil"></i> Editar
             </button>
             ${p.id !== currentUser.id ? `
@@ -800,18 +806,20 @@ window.openCreateUserModal = () => {
   qs("#userModalEmail").value         = "";
   qs("#userModalPassword").value      = "";
   qs("#userModalIsAdmin").checked     = false;
+  qs("#userModalRole").value          = "";
   qs("#userModalPasswordRow").style.display = "";
   qs("#userModal").showModal();
   lucide.createIcons();
 };
 
-window.openEditUserModal = (id, name, email, isAdminVal) => {
+window.openEditUserModal = (id, name, email, isAdminVal, role) => {
   qs("#userModalTitle").textContent   = "Editar usuário";
   qs("#userModalId").value            = id;
   qs("#userModalName").value          = name;
   qs("#userModalEmail").value         = email;
   qs("#userModalPassword").value      = "";
   qs("#userModalIsAdmin").checked     = isAdminVal;
+  qs("#userModalRole").value          = role || "";
   qs("#userModalPasswordRow").style.display = "";
   qs("#userModal").showModal();
   lucide.createIcons();
@@ -826,8 +834,10 @@ qs("#saveUserBtn")?.addEventListener("click", async () => {
   const email    = qs("#userModalEmail").value.trim();
   const password = qs("#userModalPassword").value;
   const isAdminVal = qs("#userModalIsAdmin").checked;
+  const role     = qs("#userModalRole").value;
 
   if (!email) { toast("Informe o e-mail.", "error"); return; }
+  if (!role)  { toast("Selecione o tipo de empresa.", "error"); return; }
   setLoading("#saveUserBtn", "Salvando…");
 
   try {
@@ -843,6 +853,12 @@ qs("#saveUserBtn")?.addEventListener("click", async () => {
         .update({ name, is_admin: isAdminVal })
         .eq("id", id);
       if (profErr) throw profErr;
+
+      // Atualiza role no tenant associado ao profile
+      const { data: prof } = await sb.from("profiles").select("tenant_id").eq("id", id).single();
+      if (prof?.tenant_id) {
+        await sb.from("tenants").update({ role }).eq("id", prof.tenant_id);
+      }
 
       toast("Usuário atualizado!");
     } else {
@@ -864,6 +880,11 @@ qs("#saveUserBtn")?.addEventListener("click", async () => {
         is_admin:  isAdminVal,
         tenant_id: currentTenant?.id,
       });
+
+      // Atualiza role no tenant
+      if (currentTenant?.id) {
+        await sb.from("tenants").update({ role }).eq("id", currentTenant.id);
+      }
 
       toast("Usuário criado com sucesso!");
     }
