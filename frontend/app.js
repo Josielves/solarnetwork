@@ -524,7 +524,7 @@ async function connectWA() {
     clearInterval(waPolling);
     waPolling = setInterval(async () => {
       try {
-        const { status, qr, phone } = await api("/api/whatsapp/status");
+        const { status, qr, phone, error } = await api("/api/whatsapp/status");
         updateWABadge(status, phone);
         if (qr) showQR(qr);
         if (status === "connected") {
@@ -535,6 +535,7 @@ async function connectWA() {
         }
         if (status === "disconnected") {
           clearInterval(waPolling);
+          if (error) toast("WhatsApp: " + error, "error");
         }
       } catch (e) { console.warn("WA poll:", e.message); }
     }, 3000);
