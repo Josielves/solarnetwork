@@ -938,12 +938,28 @@ window.selectTenantForChat = (tenantId) => {
 qs("#startChatBtn")?.addEventListener("click", async () => {
   if (!selectedTenantId) { toast("Selecione uma empresa.", "error"); return; }
 
-  // Verifica se conversa já existe
-  const existing = conversations.find(c =>
-    (c.tenant_a?.id === selectedTenantId || c.tenant_b?.id === selectedTenantId)
-  );
-  if (existing) {
+  // Verifica no Supabase se já existe conversa entre os dois (em qualquer ordem)
+  const { data: existingRows } = await sb
+    .from("chat_conversations")
+    .select(`
+      id, last_message, last_at,
+      tenant_a:tenant_a(id, name, initials, role),
+      tenant_b:tenant_b(id, name, initials, role)
+    `)
+    .or(
+      `and(tenant_a.eq.${currentTenant.id},tenant_b.eq.${selectedTenantId}),` +
+      `and(tenant_a.eq.${selectedTenantId},tenant_b.eq.${currentTenant.id})`
+    )
+    .limit(1);
+
+  if (existingRows?.length) {
+    const existing = existingRows[0];
+    // Garante que está no array local
+    if (!conversations.find(c => c.id === existing.id)) {
+      conversations.unshift(existing);
+    }
     qs("#newChatModal").close();
+    renderConversationList();
     openConversation(existing.id);
     return;
   }
