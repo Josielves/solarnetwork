@@ -68,9 +68,15 @@
             <input id="signupName" placeholder="Rafael Lima"/>
           </div>
         </div>
-        <div class="form-field">
-          <label>E-mail</label>
-          <input id="signupEmail" type="email" placeholder="voce@empresa.com"/>
+        <div class="form-row">
+          <div class="form-field">
+            <label>E-mail</label>
+            <input id="signupEmail" type="email" placeholder="voce@empresa.com"/>
+          </div>
+          <div class="form-field">
+            <label>Telefone</label>
+            <input id="signupPhone" type="tel" placeholder="(11) 99999-9999"/>
+          </div>
         </div>
         <div class="form-field">
           <label>Senha</label>
@@ -383,6 +389,22 @@
           <div class="panel-header"><h3>Permissões</h3></div>
           <div id="permissionList" class="permission-list"></div>
         </article>
+        <article class="panel">
+          <div class="panel-header"><h3>Meu perfil</h3></div>
+          <div class="settings-form">
+            <div class="form-row">
+              <div class="form-field">
+                <label>Nome</label>
+                <input id="profileName" placeholder="Seu nome"/>
+              </div>
+              <div class="form-field">
+                <label>Telefone</label>
+                <input id="profilePhone" type="tel" placeholder="(11) 99999-9999"/>
+              </div>
+            </div>
+            <button class="btn-primary" id="btnSaveProfile">Salvar perfil</button>
+          </div>
+        </article>
         <article class="panel panel-full">
           <div class="panel-header"><h3>Configurações da empresa</h3></div>
           <div class="settings-form">
@@ -400,7 +422,7 @@
                 <input id="settingState" maxlength="2" placeholder="SP"/>
               </div>
             </div>
-            <button class="btn-primary">Salvar alterações</button>
+            <button class="btn-primary" id="btnSaveTenant">Salvar alterações</button>
           </div>
         </article>
       </div>
