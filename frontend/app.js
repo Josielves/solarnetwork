@@ -652,10 +652,9 @@ async function loadAdminUsers() {
   tableEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px">Carregando usuários…</div>`;
 
   try {
-    // Busca profiles + email via RPC (requer função list_users_with_email no Supabase)
-    // A função deve fazer SELECT p.id, p.name, p.is_admin, p.tenant_id, t.name as tenant_name, u.email
-    // FROM profiles p LEFT JOIN tenants t ON t.id = p.tenant_id LEFT JOIN auth.users u ON u.id = p.id
-    const { data: profiles, error } = await sb.rpc("list_users_with_email");
+    // Busca profiles + email via RPC get_all_users() (SECURITY DEFINER no Supabase)
+    // Espera colunas: id, name, is_admin, tenant_id, tenant_name, email
+    const { data: profiles, error } = await sb.rpc("get_all_users");
 
     if (error) throw error;
 
