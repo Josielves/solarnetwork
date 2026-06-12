@@ -6,7 +6,6 @@
 const SUPABASE_URL      = "https://xvzqsusaaccjeewfsnev.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2enFzdXNhYWNjamVld2ZzbmV2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDkzNTA4NiwiZXhwIjoyMDk2NTExMDg2fQ.oycjFk28DgIsUezX0g8jkO6Ul4N84lSM9cY8FLoNoxY"; // ← sua anon key
 const BACKEND_URL       = "https://solarnetwork-production.up.railway.app";
-
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -1047,6 +1046,29 @@ qs("#saveKitBtn").addEventListener("click", async () => {
   resetBtn("#saveKitBtn", '<i data-lucide="save"></i> Publicar kit');
   lucide.createIcons();
 });
+
+// ─── PROFILE MODAL ────────────────────────────────────────────────────────────
+window.openProfileModal = (tenant) => {
+  qs("#profileModalName").textContent     = tenant.name;
+  qs("#profileModalRole").textContent     = tenant.role || "";
+  const loc = qs("#profileModalLocationText");
+  if (loc) loc.textContent = `${tenant.city || ""}${tenant.city && tenant.state ? "/" : ""}${tenant.state || ""}`;
+  qs("#profileModalComment").textContent  = tenant.comment || "";
+  qs("#profileModalComment").style.display = tenant.comment ? "block" : "none";
+  qs("#profileModalTags").innerHTML       = (tenant.permissions || []).map(p => `<span class="tag">${p}</span>`).join("");
+  qs("#profileModalRating").innerHTML     = `<span class="stars">${stars(tenant.rating)}</span><span class="rating-val">${Number(tenant.rating || 0).toFixed(1)}</span>`;
+  qs("#profileModalInitials").textContent = tenant.initials || (tenant.name || "?")[0].toUpperCase();
+
+  qs("#profileModalChatBtn").onclick = () => {
+    qs("#profileModal").close();
+    selectedTenantId = tenant.id;
+    switchView("chat");
+    loadChat();
+  };
+
+  qs("#profileModal").showModal();
+  lucide.createIcons();
+};
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
