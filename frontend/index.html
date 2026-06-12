@@ -418,17 +418,19 @@
     <!-- ── ADMIN ── -->
     <section class="view" id="viewAdmin">
       <div class="admin-grid">
-        <article class="panel">
+
+        <!-- Usuários do sistema -->
+        <article class="panel panel-full">
           <div class="panel-header">
-            <h3>Usuários da empresa</h3>
-            <button class="btn-primary sm"><i data-lucide="user-plus"></i> Convidar</button>
+            <h3>Usuários do sistema</h3>
+            <button class="btn-primary sm" onclick="openCreateUserModal()">
+              <i data-lucide="user-plus"></i> Novo usuário
+            </button>
           </div>
           <div id="userTable" class="user-table"></div>
         </article>
-        <article class="panel">
-          <div class="panel-header"><h3>Permissões</h3></div>
-          <div id="permissionList" class="permission-list"></div>
-        </article>
+
+        <!-- Configurações da empresa -->
         <article class="panel panel-full">
           <div class="panel-header"><h3>Configurações da empresa</h3></div>
           <div class="settings-form">
@@ -446,9 +448,10 @@
                 <input id="settingState" maxlength="2" placeholder="SP"/>
               </div>
             </div>
-            <button class="btn-primary">Salvar alterações</button>
+            <button class="btn-primary" id="btnSaveTenantSettings">Salvar alterações</button>
           </div>
         </article>
+
       </div>
     </section>
   </main>
@@ -624,6 +627,47 @@
     <button class="btn-ghost" onclick="document.getElementById('profileModal').close()">Fechar</button>
     <button class="btn-primary" id="profileModalChatBtn">
       <i data-lucide="message-square"></i> Iniciar conversa
+    </button>
+  </div>
+</dialog>
+
+<!-- ═══════════════════════ MODAL: CRIAR/EDITAR USUÁRIO ══════════════════ -->
+<dialog id="userModal" class="modal">
+  <div class="modal-header">
+    <div>
+      <span class="eyebrow">Admin</span>
+      <h2 id="userModalTitle">Criar usuário</h2>
+    </div>
+    <button class="icon-btn" id="closeUserModal"><i data-lucide="x"></i></button>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="userModalId"/>
+    <div class="form-row">
+      <div class="form-field">
+        <label>Nome</label>
+        <input id="userModalName" placeholder="João Silva"/>
+      </div>
+      <div class="form-field">
+        <label>E-mail *</label>
+        <input id="userModalEmail" type="email" placeholder="joao@empresa.com"/>
+      </div>
+    </div>
+    <div class="form-field" id="userModalPasswordRow">
+      <label>Senha <span style="color:var(--muted);font-weight:400">(deixe em branco para não alterar)</span></label>
+      <input id="userModalPassword" type="password" placeholder="mínimo 6 caracteres"/>
+    </div>
+    <label class="permission-item" style="margin-top:8px">
+      <span style="font-weight:500">Administrador</span>
+      <span class="switch">
+        <input type="checkbox" id="userModalIsAdmin"/>
+        <span class="slider"></span>
+      </span>
+    </label>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-ghost" id="cancelUserModal">Cancelar</button>
+    <button class="btn-primary" id="saveUserBtn">
+      <i data-lucide="save"></i> Salvar
     </button>
   </div>
 </dialog>
