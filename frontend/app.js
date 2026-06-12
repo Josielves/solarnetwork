@@ -652,21 +652,15 @@ async function loadAdminUsers() {
   tableEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px">Carregando usuários…</div>`;
 
   try {
-    // Busca todos os profiles + email via join com auth (service role necessário)
-    const { data: profiles, error } = await sb
-      .from("profiles")
-      .select("id, name, is_admin, tenant_id, tenants(name)")
-      .order("name");
+    // Busca profiles + email via RPC (requer função list_users_with_email no Supabase)
+    // A função deve fazer SELECT p.id, p.name, p.is_admin, p.tenant_id, t.name as tenant_name, u.email
+    // FROM profiles p LEFT JOIN tenants t ON t.id = p.tenant_id LEFT JOIN auth.users u ON u.id = p.id
+    const { data: profiles, error } = await sb.rpc("list_users_with_email");
 
     if (error) throw error;
 
-    // Busca emails via admin API (funciona com service role key)
-    const { data: usersData, error: authErr } = await sb.auth.admin.listUsers();
-    const authUsers = usersData?.users || [];
-    const emailMap = Object.fromEntries(authUsers.map(u => [u.id, u.email]));
-
     tableEl.innerHTML = profiles.map(p => {
-      const email = emailMap[p.id] || "–";
+      const email = p.email || "–";
       const name  = p.name || email.split("@")[0];
       const admin = p.is_admin ? `<span class="tag" style="background:var(--leaf);color:#fff">admin</span>` : `<span class="tag">usuário</span>`;
       return `
@@ -675,7 +669,7 @@ async function loadAdminUsers() {
             <div class="user-avatar" style="width:36px;height:36px;font-size:13px;border-radius:10px;background:var(--leaf);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">${(name[0]||"?").toUpperCase()}</div>
             <div>
               <div style="font-weight:600;font-size:14px">${name}</div>
-              <div style="font-size:12px;color:var(--muted)">${email} · ${p.tenants?.name || "–"}</div>
+              <div style="font-size:12px;color:var(--muted)">${email} · ${p.tenant_name || "–"}</div>
             </div>
             ${admin}
           </div>
