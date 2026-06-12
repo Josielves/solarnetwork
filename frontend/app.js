@@ -733,18 +733,33 @@ async function loadConversations() {
     .select("id, name, initials, role, city, state")
     .in("id", tenantIds);
 
-  console.log("[Chat] convRows:", convRows);
-  console.log("[Chat] tenantIds buscados:", tenantIds);
-  console.log("[Chat] tenantRows retornados:", tenantRows);
-  console.log("[Chat] currentTenant:", currentTenant);
   const tenantMap = Object.fromEntries((tenantRows || []).map(t => [t.id, t]));
+
   // Garante que o tenant atual está no mapa (fallback local)
   if (currentTenant?.id && !tenantMap[currentTenant.id]) {
     tenantMap[currentTenant.id] = currentTenant;
   }
 
+  // IDs que não vieram na tabela tenants — busca em profiles como fallback
+  const missingIds = tenantIds.filter(id => !tenantMap[id]);
+  if (missingIds.length) {
+    const { data: profileRows } = await sb
+      .from("profiles")
+      .select("id, name, tenant_id, tenants(id, name, initials, role, city, state)")
+      .in("tenant_id", missingIds);
+
+    (profileRows || []).forEach(p => {
+      if (p.tenants && !tenantMap[p.tenant_id]) {
+        tenantMap[p.tenant_id] = p.tenants;
+      } else if (!tenantMap[p.tenant_id]) {
+        // último fallback: usa o nome do profile
+        const initials = (p.name || "?").slice(0, 2).toUpperCase();
+        tenantMap[p.tenant_id] = { id: p.tenant_id, name: p.name || "Usuário", initials, role: "" };
+      }
+    });
+  }
+
   // 4. Monta o objeto de conversa com dados completos
-  // Usa fallback genérico em vez de descartar conversas com tenant não encontrado
   conversations = convRows.map(c => ({
     ...c,
     tenant_a: tenantMap[c.tenant_a] || { id: c.tenant_a, name: "Empresa", initials: "?", role: "" },
