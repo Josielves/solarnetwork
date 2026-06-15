@@ -1449,6 +1449,10 @@ qs("#cancelKitModal").addEventListener("click", () => qs("#kitModal").close());
 // Profile modal — listeners fixos (não usam clone)
 qs("#profileModalCloseX")?.addEventListener("click",   () => qs("#profileModal").close());
 qs("#profileModalCloseBtn")?.addEventListener("click", () => qs("#profileModal").close());
+// Fecha também ao clicar fora do conteúdo (no backdrop)
+qs("#profileModal")?.addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.close();
+});
 
 qs("#saveKitBtn").addEventListener("click", async () => {
   const title       = qs("#kitTitle").value.trim();
