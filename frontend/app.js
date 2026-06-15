@@ -1721,20 +1721,8 @@ function renderFeedList(tenant) {
   lucide.createIcons();
 }
 
-// ─── Modal principal ───────────────────────────────────────────────────────────
-window.openProfileModal = (tenant) => {
-  // ── Identidade ──
-  qs("#profileModalInitials").textContent  = tenant.initials || (tenant.name || "?")[0].toUpperCase();
-  qs("#profileModalName").textContent      = tenant.name || "–";
-  qs("#profileModalRoleBadge").textContent = tenant.role || "";
-
-  // Localização
-  const locWrapper = qs("#profileModalLocation");
-  const locText    = qs("#profileModalLocationText");
-  const locVal     = [tenant.city, tenant.state].filter(Boolean).join("/");
-  if (locWrapper) locWrapper.style.display = locVal ? "flex" : "none";
-  if (locText)    locText.textContent = locVal;
-
+// ─── Renderiza aba Sobre ───────────────────────────────────────────────────────
+function renderSobre(tenant) {
   // ── Dados Comerciais ──
   const showField = (wrapperId, val) => { const el = qs(wrapperId); if (el) el.style.display = val ? "" : "none"; };
   showField("#piCnpj",    tenant.cnpj);
@@ -1770,7 +1758,39 @@ window.openProfileModal = (tenant) => {
   qs("#profileModalTagsWrap").style.display = tags.length ? "" : "none";
   qs("#profileModalTags").innerHTML = tags.map(p => `<span class="tag">${esc(p)}</span>`).join("");
 
-  // ── Match ──
+  // ── Match detail (fatores) ──
+  const score  = calcMatch(currentTenant, tenant);
+  const isSelf = tenant.id && tenant.id === currentTenant?.id;
+  const detailWrap = qs("#profileModalMatchDetail");
+  if (score !== null && !isSelf) {
+    const factors = matchFactors(currentTenant, tenant);
+    detailWrap.style.display = factors.length ? "" : "none";
+    qs("#profileModalMatchFactors").innerHTML = factors.map(f =>
+      `<div class="match-factor"><i data-lucide="${f.icon}"></i> ${f.text}</div>`).join("");
+  } else {
+    if (detailWrap) detailWrap.style.display = "none";
+  }
+
+  lucide.createIcons();
+}
+
+// ─── Modal principal ───────────────────────────────────────────────────────────
+window.openProfileModal = (tenant) => {
+  const modal = qs("#profileModal");
+
+  // ── Identidade (header — sempre visível, sem custo) ──
+  qs("#profileModalInitials").textContent  = tenant.initials || (tenant.name || "?")[0].toUpperCase();
+  qs("#profileModalName").textContent      = tenant.name || "–";
+  qs("#profileModalRoleBadge").textContent = tenant.role || "";
+
+  // Localização no header
+  const locWrapper = qs("#profileModalLocation");
+  const locText    = qs("#profileModalLocationText");
+  const locVal     = [tenant.city, tenant.state].filter(Boolean).join("/");
+  if (locWrapper) locWrapper.style.display = locVal ? "flex" : "none";
+  if (locText)    locText.textContent = locVal;
+
+  // Badge de match (header)
   const score      = calcMatch(currentTenant, tenant);
   const matchBadge = qs("#profileModalMatch");
   const isSelf     = tenant.id && tenant.id === currentTenant?.id;
@@ -1779,23 +1799,19 @@ window.openProfileModal = (tenant) => {
     qs("#profileModalMatchPct").textContent = score + "%";
     const arc = qs("#matchArc");
     if (arc) arc.setAttribute("stroke-dasharray", `${(score / 100) * 94} 94`);
-    const factors    = matchFactors(currentTenant, tenant);
-    const detailWrap = qs("#profileModalMatchDetail");
-    detailWrap.style.display = factors.length ? "" : "none";
-    qs("#profileModalMatchFactors").innerHTML = factors.map(f =>
-      `<div class="match-factor"><i data-lucide="${f.icon}"></i> ${f.text}</div>`).join("");
   } else {
     matchBadge.style.display = "none";
-    qs("#profileModalMatchDetail").style.display = "none";
   }
 
   // ── Tabs — reset + re-bind sem acúmulo de listeners ──
-  const modal = qs("#profileModal");
+  // Todas as 3 abas são lazy: só renderizam quando clicadas
   const activateTab = (tabName) => {
     modal.querySelectorAll(".pmt").forEach(b => b.classList.toggle("active", b.dataset.pmt === tabName));
     modal.querySelectorAll(".pmt-panel").forEach(p => p.classList.toggle("active", p.id === "pmt" + cap(tabName)));
   };
   activateTab("sobre");
+  // Renderiza "Sobre" imediatamente pois é a aba inicial
+  renderSobre(tenant);
 
   modal.querySelectorAll(".pmt").forEach(btn => {
     const fresh = btn.cloneNode(true);
@@ -1804,6 +1820,7 @@ window.openProfileModal = (tenant) => {
   modal.querySelectorAll(".pmt").forEach(btn => {
     btn.addEventListener("click", () => {
       activateTab(btn.dataset.pmt);
+      if (btn.dataset.pmt === "sobre")     renderSobre(tenant);
       if (btn.dataset.pmt === "reputacao") renderReputation(tenant);
       if (btn.dataset.pmt === "feed")      renderFeed(tenant);
     });
