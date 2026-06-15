@@ -697,6 +697,140 @@
   </div>
 </dialog>
 
+<!-- ═══════════════════════ MODAL: PERFIL DO PARCEIRO ══════════════════════ -->
+<dialog id="profileModal" class="modal profile-modal-wide">
+  <button class="icon-btn profile-modal-close" id="profileModalCloseX"><i data-lucide="x"></i></button>
+
+  <div class="profile-modal-hero">
+    <span class="profile-modal-avatar" id="profileModalInitials"></span>
+    <div class="profile-modal-identity">
+      <h2 id="profileModalName"></h2>
+      <div class="profile-modal-meta-row">
+        <span class="tag" id="profileModalRoleBadge"></span>
+        <span id="profileModalLocation" style="display:none;align-items:center;gap:4px;font-size:12px;color:var(--muted)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span id="profileModalLocationText"></span>
+        </span>
+      </div>
+    </div>
+    <div class="match-badge" id="profileModalMatch" style="display:none">
+      <div class="match-ring">
+        <svg viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border)" stroke-width="3"/>
+          <circle id="matchArc" cx="18" cy="18" r="15" fill="none" stroke="var(--leaf)" stroke-width="3" stroke-dasharray="0 94" stroke-linecap="round" transform="rotate(-90 18 18)"/>
+        </svg>
+        <span id="profileModalMatchPct">0%</span>
+      </div>
+      <span class="match-label">Match</span>
+    </div>
+  </div>
+
+  <div class="profile-modal-tabs">
+    <button class="pmt active" data-pmt="sobre"><i data-lucide="building-2"></i> Sobre</button>
+    <button class="pmt" data-pmt="reputacao"><i data-lucide="star"></i> Reputação</button>
+    <button class="pmt" data-pmt="feed"><i data-lucide="rss"></i> Feed</button>
+  </div>
+
+  <div class="modal-body profile-modal-body">
+
+    <!-- ── ABA SOBRE ── -->
+    <div class="pmt-panel active" id="pmtSobre">
+
+      <div class="profile-section" id="piWrap">
+        <span class="profile-section-title"><i data-lucide="info"></i> Dados comerciais</span>
+        <div class="profile-info-grid">
+          <div class="profile-info-item" id="piCnpj">
+            <span class="pi-label">CNPJ</span><span class="pi-val" id="profileModalCnpj"></span>
+          </div>
+          <div class="profile-info-item" id="piRazao">
+            <span class="pi-label">Razão social</span><span class="pi-val" id="profileModalRazao"></span>
+          </div>
+          <div class="profile-info-item" id="piColabs">
+            <span class="pi-label">Equipe</span><span class="pi-val" id="profileModalColabs"></span>
+          </div>
+          <div class="profile-info-item" id="piFounded">
+            <span class="pi-label">Fundação</span><span class="pi-val" id="profileModalFounded"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-section" id="profileModalCommentWrap">
+        <span class="profile-section-title"><i data-lucide="message-square-text"></i> Apresentação</span>
+        <p id="profileModalComment" style="font-size:13px;color:var(--ink2);line-height:1.6;margin:0"></p>
+      </div>
+
+      <div class="profile-section">
+        <span class="profile-section-title"><i data-lucide="contact"></i> Contato &amp; redes</span>
+        <div class="profile-links-row" id="profileModalLinks"></div>
+      </div>
+
+      <div class="profile-section" id="profileModalTagsWrap">
+        <span class="profile-section-title"><i data-lucide="tags"></i> Especialidades</span>
+        <div class="tag-row" id="profileModalTags"></div>
+      </div>
+
+      <div class="profile-section" id="profileModalMatchDetail">
+        <span class="profile-section-title"><i data-lucide="sparkles"></i> Por que este match?</span>
+        <div class="match-factors" id="profileModalMatchFactors"></div>
+      </div>
+
+    </div>
+
+    <!-- ── ABA REPUTAÇÃO ── -->
+    <div class="pmt-panel" id="pmtReputacao">
+
+      <div class="rep-summary">
+        <div class="rep-score">
+          <span id="repScore">–</span>
+          <span class="rep-review-stars" id="repStars">☆☆☆☆☆</span>
+          <small id="repCount" style="color:var(--muted);font-size:11px">Sem avaliações</small>
+        </div>
+        <div class="rep-bars" id="repBars"></div>
+      </div>
+
+      <div class="rep-review-list" id="repReviewList"></div>
+
+      <div class="rep-new-form">
+        <span class="profile-section-title"><i data-lucide="pencil-line"></i> Avaliar este parceiro</span>
+        <div class="rep-criteria-inputs" id="repCriteriaInputs"></div>
+        <textarea id="repComment" rows="3" placeholder="Conte como foi sua experiência com este parceiro…"></textarea>
+        <button class="btn-primary" id="repSubmitBtn" style="align-self:flex-start">
+          <i data-lucide="send"></i> Enviar avaliação
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ── ABA FEED ── -->
+    <div class="pmt-panel" id="pmtFeed">
+
+      <div class="feed-compose" id="feedPublishWrap">
+        <textarea id="feedText" rows="3" placeholder="Compartilhe uma obra, dica, problema ou equipamento…"></textarea>
+        <div class="feed-compose-type" id="feedComposeType">
+          <button type="button" class="fct active" data-fct="obra"><i data-lucide="hard-hat"></i> Obra</button>
+          <button type="button" class="fct" data-fct="dica"><i data-lucide="lightbulb"></i> Dica</button>
+          <button type="button" class="fct" data-fct="problema"><i data-lucide="alert-triangle"></i> Problema</button>
+          <button type="button" class="fct" data-fct="equipamento"><i data-lucide="wrench"></i> Equipamento</button>
+        </div>
+        <button class="btn-primary" id="feedPublishBtn" style="align-self:flex-start">
+          <i data-lucide="send"></i> Publicar
+        </button>
+      </div>
+
+      <div class="feed-list" id="feedList"></div>
+
+    </div>
+
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn-ghost" id="profileModalCloseBtn">Fechar</button>
+    <button class="btn-primary" id="profileModalChatBtn">
+      <i data-lucide="message-square"></i> Conversar
+    </button>
+  </div>
+</dialog>
+
 <div id="toast" class="toast hidden"></div>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
