@@ -1446,6 +1446,10 @@ qs("#publishKitBtn").addEventListener("click", openKit);
 qs("#closeKitModal").addEventListener("click",  () => qs("#kitModal").close());
 qs("#cancelKitModal").addEventListener("click", () => qs("#kitModal").close());
 
+// Profile modal — listeners fixos (não usam clone)
+qs("#profileModalCloseX")?.addEventListener("click",   () => qs("#profileModal").close());
+qs("#profileModalCloseBtn")?.addEventListener("click", () => qs("#profileModal").close());
+
 qs("#saveKitBtn").addEventListener("click", async () => {
   const title       = qs("#kitTitle").value.trim();
   const distributor = qs("#kitDistributor").value.trim();
@@ -1836,20 +1840,6 @@ window.openProfileModal = (tenant) => {
     switchView("chat");
     loadChat();
   });
-
-  // ── Botões fechar — re-bind a cada abertura para garantir funcionamento ──
-  const closeX   = modal.querySelector("#profileModalCloseX");
-  const closeBtn = modal.querySelector("#profileModalCloseBtn");
-  if (closeX) {
-    const fx = closeX.cloneNode(true);
-    closeX.replaceWith(fx);
-    fx.addEventListener("click", () => modal.close());
-  }
-  if (closeBtn) {
-    const fb = closeBtn.cloneNode(true);
-    closeBtn.replaceWith(fb);
-    fb.addEventListener("click", () => modal.close());
-  }
 
   modal.showModal();
   lucide.createIcons();
