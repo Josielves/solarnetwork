@@ -364,6 +364,11 @@
           <div id="waStatusBanner" style="padding:20px;border-radius:10px;margin:0 0 4px">
             <p style="margin:0;color:var(--muted);font-size:13px">Verificando status do agente…</p>
           </div>
+          <!-- DEBUG: remover após diagnosticar -->
+          <details style="margin:8px 20px;font-size:11px">
+            <summary style="cursor:pointer;color:var(--muted);user-select:none">🔍 Debug — resposta da API</summary>
+            <pre id="waDebug" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;margin-top:6px;overflow:auto;max-height:200px;font-size:11px;color:var(--ink2)">Aguardando…</pre>
+          </details>
         </article>
 
         <!-- Conectar -->
