@@ -294,6 +294,26 @@
           <i data-lucide="plus"></i> Publicar kit
         </button>
       </div>
+
+      <!-- Painel de gestão exclusivo para Distribuidores -->
+      <div id="distributorKitPanel" style="display:none;margin-bottom:24px">
+        <article class="panel panel-full">
+          <div class="panel-header">
+            <h3><i data-lucide="package" style="width:16px;height:16px;vertical-align:-2px;margin-right:6px"></i>Meus Kits</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input id="distKitSearch" class="search-inline" type="search" placeholder="Filtrar meus kits…" oninput="renderDistributorKits()" style="width:180px"/>
+              <button class="btn-primary sm" onclick="openDistributorKitModal()">
+                <i data-lucide="plus"></i> Novo kit
+              </button>
+            </div>
+          </div>
+          <div id="distKitTable"></div>
+        </article>
+      </div>
+
+      <div class="panel-header" style="padding:0 0 12px">
+        <h3 style="font-size:14px;color:var(--muted);font-weight:500">Todos os kits do marketplace</h3>
+      </div>
       <div class="kit-grid" id="kitGrid"></div>
     </section>
 
@@ -429,6 +449,9 @@
         <button class="admin-tab" data-tab="leads" onclick="switchAdminTab('leads',this)">
           <i data-lucide="kanban"></i> Leads
         </button>
+        <button class="admin-tab" data-tab="kits" onclick="switchAdminTab('kits',this)">
+          <i data-lucide="package"></i> Kits
+        </button>
         <button class="admin-tab" data-tab="settings" onclick="switchAdminTab('settings',this)">
           <i data-lucide="settings"></i> Configurações
         </button>
@@ -466,6 +489,25 @@
             </div>
           </div>
           <div id="adminLeadTable"></div>
+        </article>
+        </div>
+
+        <!-- ── ABA KITS (ADMIN) ── -->
+        <div id="adminTabKits" class="admin-tab-panel" style="display:none">
+        <article class="panel panel-full">
+          <div class="panel-header">
+            <h3>Gerenciar Kits</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input id="adminKitSearch" class="search-inline" type="search" placeholder="Buscar kit…" oninput="renderAdminKits()" style="width:200px"/>
+              <select id="adminKitTenantFilter" class="select-sm" onchange="renderAdminKits()">
+                <option value="">Todos os distribuidores</option>
+              </select>
+              <button class="btn-primary sm" onclick="openAdminKitModal()">
+                <i data-lucide="plus"></i> Novo kit
+              </button>
+            </div>
+          </div>
+          <div id="adminKitTable"></div>
         </article>
         </div>
 
@@ -979,6 +1021,64 @@
     </button>
   </div>
 </nav>
+
+<!-- ═══════════════════════ MODAL: KIT (ADMIN/DISTRIBUIDOR) ══════════════════ -->
+<dialog id="adminKitModal" class="modal modal-lg">
+  <div class="modal-header">
+    <div>
+      <span class="eyebrow" id="adminKitModalEyebrow">Kits</span>
+      <h2 id="adminKitModalTitle2">Novo Kit</h2>
+    </div>
+    <button class="icon-btn" id="closeAdminKitModal"><i data-lucide="x"></i></button>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="adminKitModalId"/>
+    <div class="form-row">
+      <div class="form-field" style="flex:2">
+        <label>Nome do kit *</label>
+        <input id="adminKitModalTitleInput" placeholder="Ex.: Kit Residencial 6,6 kWp"/>
+      </div>
+      <div class="form-field">
+        <label>Potência (kWp)</label>
+        <input id="adminKitModalPower" type="number" placeholder="6.6"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>Cidade *</label>
+        <input id="adminKitModalCity" placeholder="Curitiba"/>
+      </div>
+      <div class="form-field" style="max-width:90px">
+        <label>Estado *</label>
+        <input id="adminKitModalState" maxlength="2" placeholder="PR"/>
+      </div>
+      <div class="form-field">
+        <label>Preço (R$) *</label>
+        <input id="adminKitModalPrice" type="number" placeholder="52400"/>
+      </div>
+      <div class="form-field">
+        <label>Estoque</label>
+        <input id="adminKitModalStock" type="number" placeholder="10"/>
+      </div>
+    </div>
+    <div class="form-field full" id="adminKitTenantRow">
+      <label>Distribuidor</label>
+      <select id="adminKitModalTenant">
+        <option value="">— Selecione o distribuidor —</option>
+      </select>
+    </div>
+    <div class="form-field full">
+      <label>Composição do kit <small style="color:var(--muted)">(um item por linha)</small></label>
+      <textarea id="adminKitModalItems" rows="5" placeholder="6x Painel Solar 550W&#10;1x Inversor 5kW&#10;Cabos e conectores&#10;Estrutura de fixação"></textarea>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-ghost" id="cancelAdminKitModal">Cancelar</button>
+    <button class="btn-primary" id="saveAdminKitBtn">
+      <i data-lucide="save"></i> Salvar kit
+    </button>
+  </div>
+</dialog>
 
 <script src="app.js"></script>
 </body>
