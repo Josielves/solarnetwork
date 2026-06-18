@@ -322,6 +322,8 @@ function renderKanban() {
   const search  = (qs("#globalSearch")?.value || "").toLowerCase();
 
   const filtered = appData.leads.filter(l => {
+    // Usuários não-admin veem apenas leads atribuídos a eles
+    if (!isAdmin() && l.assigned_to && l.assigned_to !== currentUser?.id) return false;
     const blob = `${l.name} ${l.city} ${l.state} ${l.type} ${l.note || ""}`.toLowerCase();
     return (!stateF || l.state === stateF) && (!powerF || powerBucket(l.power) === powerF) && (!search || blob.includes(search));
   });
@@ -338,6 +340,7 @@ function renderKanban() {
           <div class="lead-card" data-id="${l.id}">
             <div class="lead-card-title">${l.name}</div>
             <div class="lead-card-note">${l.note || ""}</div>
+            ${l.assigned_to ? `<div class="lead-card-assigned"><i data-lucide="user" style="width:11px;height:11px"></i> ${l.assigned_name || "Atribuído"}</div>` : ""}
             <div class="lead-card-tags">
               <span class="tag">${l.city}/${l.state}</span>
               <span class="tag yellow">${l.power} kWp</span>
@@ -832,6 +835,154 @@ async function loadAdminUsers() {
   }
 }
 
+// ─── Admin: alternador de abas ────────────────────────────────────────────────
+window.switchAdminTab = (tab, btn) => {
+  qsa(".admin-tab").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  qsa(".admin-tab-panel").forEach(p => p.style.display = "none");
+  qs(`#adminTab${tab.charAt(0).toUpperCase()+tab.slice(1)}`).style.display = "";
+  if (tab === "leads") renderAdminLeads();
+};
+
+// ─── Admin: lista de todos os leads com atribuição ────────────────────────────
+let adminAllUsers = []; // cache de usuários para o select
+
+async function loadAdminLeadUsers() {
+  if (adminAllUsers.length) return adminAllUsers;
+  const { data } = await sb.rpc("get_all_users");
+  adminAllUsers = data || [];
+  return adminAllUsers;
+}
+
+window.renderAdminLeads = async () => {
+  const tableEl = qs("#adminLeadTable");
+  if (!tableEl) return;
+  tableEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px">Carregando leads…</div>`;
+
+  try {
+    const users = await loadAdminLeadUsers();
+
+    // Popular filtro de usuários
+    const filterEl = qs("#adminLeadUserFilter");
+    if (filterEl && filterEl.options.length <= 1) {
+      users.forEach(u => {
+        const name = u.name || u.email?.split("@")[0] || "?";
+        filterEl.add(new Option(name, u.id));
+      });
+    }
+
+    // Popular select do modal assignLeadUser
+    const assignSel = qs("#assignLeadUser");
+    if (assignSel && assignSel.options.length <= 1) {
+      users.forEach(u => {
+        const name = u.name || u.email?.split("@")[0] || "?";
+        assignSel.add(new Option(name, u.id));
+      });
+    }
+
+    // Popular select do lead modal (criar novo lead)
+    const leadAssignSel = qs("#leadAssignedTo");
+    if (leadAssignSel && leadAssignSel.options.length <= 1) {
+      users.forEach(u => {
+        const name = u.name || u.email?.split("@")[0] || "?";
+        leadAssignSel.add(new Option(name, u.id));
+      });
+    }
+
+    // Busca todos os leads (admin vê tudo via backend)
+    const leads = await api("/api/leads?admin=1");
+
+    // Cria mapa id→name de usuários
+    const userMap = Object.fromEntries(users.map(u => [u.id, u.name || u.email?.split("@")[0] || "?"]));
+
+    const userF  = qs("#adminLeadUserFilter")?.value  || "";
+    const stageF = qs("#adminLeadStageFilter")?.value || "";
+
+    const filtered = leads.filter(l => {
+      if (userF  && l.assigned_to !== userF)  return false;
+      if (stageF && l.stage       !== stageF) return false;
+      return true;
+    });
+
+    if (!filtered.length) {
+      tableEl.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:12px">Nenhum lead encontrado.</p>`;
+      return;
+    }
+
+    tableEl.innerHTML = `
+      <table class="admin-lead-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Estágio</th>
+            <th>Potência</th>
+            <th>Cidade / UF</th>
+            <th>Responsável</th>
+            <th style="width:80px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map(l => {
+            const responsible = l.assigned_to ? (userMap[l.assigned_to] || "–") : `<span style="color:var(--muted);font-style:italic">Sem responsável</span>`;
+            return `<tr>
+              <td style="font-weight:600">${l.name}</td>
+              <td><span class="tag">${l.stage || "–"}</span></td>
+              <td>${l.power ? l.power + " kWp" : "–"}</td>
+              <td>${l.city || "–"} / ${l.state || "–"}</td>
+              <td>${responsible}</td>
+              <td>
+                <button class="btn-ghost sm" onclick="openAssignLeadModal('${l.id}','${escapeHtml(l.name)}','${l.assigned_to||''}')">
+                  <i data-lucide="user-check"></i> Atribuir
+                </button>
+              </td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+    lucide.createIcons();
+  } catch(e) {
+    tableEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px">Erro: ${e.message}</div>`;
+    console.error("renderAdminLeads:", e);
+  }
+};
+
+// ─── Modal atribuir lead ──────────────────────────────────────────────────────
+window.openAssignLeadModal = async (leadId, leadName, currentAssigned) => {
+  await loadAdminLeadUsers(); // garante que o select está populado
+  qs("#assignLeadId").value       = leadId;
+  qs("#assignLeadName").textContent = leadName;
+  qs("#assignLeadUser").value     = currentAssigned || "";
+  qs("#assignLeadModal").showModal();
+  lucide.createIcons();
+};
+
+qs("#closeAssignLeadModal")?.addEventListener("click",  () => qs("#assignLeadModal").close());
+qs("#cancelAssignLeadModal")?.addEventListener("click", () => qs("#assignLeadModal").close());
+
+qs("#saveAssignLeadBtn")?.addEventListener("click", async () => {
+  const leadId = qs("#assignLeadId").value;
+  const userId = qs("#assignLeadUser").value || null;
+  setLoading("#saveAssignLeadBtn", "Salvando…");
+  try {
+    await api(`/api/leads/${leadId}`, { method: "PATCH", body: { assigned_to: userId } });
+    toast("Lead atribuído com sucesso!");
+    qs("#assignLeadModal").close();
+    renderAdminLeads();
+    // Atualiza cache local
+    const lead = appData.leads.find(l => l.id === leadId);
+    if (lead) {
+      lead.assigned_to = userId;
+      const users = await loadAdminLeadUsers();
+      lead.assigned_name = users.find(u => u.id === userId)?.name || "";
+    }
+    renderKanban();
+  } catch(e) {
+    toast("Erro: " + e.message, "error");
+  }
+  resetBtn("#saveAssignLeadBtn", `<i data-lucide="user-check"></i> Atribuir`);
+  lucide.createIcons();
+});
+
 // ─── Modal criar/editar usuário ───────────────────────────────────────────────
 window.openCreateUserModal = () => {
   qs("#userModalTitle").textContent   = "Criar usuário";
@@ -969,7 +1120,20 @@ qs("#btnSaveTenantSettings")?.addEventListener("click", async () => {
 // ═══════════════════════════════════════════════════════════════════════════
 // LEAD MODAL
 // ═══════════════════════════════════════════════════════════════════════════
-const openLead = () => qs("#leadModal").showModal();
+const openLead = async () => {
+  // Exibe campo de responsável só para admin
+  const assignRow = qs("#leadAssignRow");
+  if (assignRow) assignRow.style.display = isAdmin() ? "" : "none";
+  // Popula o select de usuários (se admin)
+  if (isAdmin()) {
+    const users = await loadAdminLeadUsers();
+    const sel = qs("#leadAssignedTo");
+    if (sel && sel.options.length <= 1) {
+      users.forEach(u => sel.add(new Option(u.name || u.email?.split("@")[0], u.id)));
+    }
+  }
+  qs("#leadModal").showModal();
+};
 qs("#newLeadBtn").addEventListener("click",  openLead);
 qs("#newLeadBtn2").addEventListener("click", openLead);
 qs("#closeLeadModal").addEventListener("click",  () => qs("#leadModal").close());
@@ -993,6 +1157,7 @@ qs("#saveLeadBtn").addEventListener("click", async () => {
         value_brl:     parseFloat(qs("#leadValue").value) || null,
         contact_name:  qs("#leadContact").value.trim(),
         contact_phone: qs("#leadPhone").value.trim(),
+        assigned_to:   qs("#leadAssignedTo")?.value || null,
       },
     });
     appData.leads.unshift(data);
