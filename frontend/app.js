@@ -462,38 +462,79 @@ function renderMarketplace() {
     `${k.title} ${k.distributor} ${k.city} ${k.state}`.toLowerCase().includes(search)
   );
 
-  // Botão "Publicar kit" só visível para distribuidores
+  // Botão "Publicar kit" SOMENTE para role Distribuidor
   const publishBtn = qs("#publishKitBtn");
   if (publishBtn) {
-    const isDistributor = currentTenant?.role?.toLowerCase().includes("distribuidor") ||
-                          currentProfile?.is_admin === true;
+    const isDistributor = currentTenant?.role?.toLowerCase() === "distribuidor";
     publishBtn.style.display = isDistributor ? "" : "none";
   }
 
   qs("#kitGrid").innerHTML = kits.map(k => {
     const isOwn = k.tenant_id && k.tenant_id === currentTenant?.id;
-    const actionBtn = isOwn
-      ? `<button class="btn-ghost" style="width:100%;justify-content:center" disabled>Seu kit</button>`
-      : `<button class="btn-primary" style="width:100%;justify-content:center"
-           onclick="openChatWithKit(${JSON.stringify(k).replace(/"/g, "&quot;")})">
-           <i data-lucide="shopping-cart"></i> Solicitar compra
-         </button>`;
+    const ownBadge = isOwn ? `<span class="kit-own-badge">Seu kit</span>` : "";
+    const kData = JSON.stringify(k).replace(/"/g, "&quot;");
     return `
-    <article class="kit-card">
-      <div>
-        <div class="kit-distributor">${k.distributor}</div>
-        <div class="kit-title">${k.title}</div>
+    <article class="kit-card" onclick="openKitDetail(${kData})" style="cursor:pointer">
+      <div class="kit-card-top">
+        <div>
+          <div class="kit-distributor">${k.distributor}</div>
+          <div class="kit-title">${k.title}</div>
+        </div>
+        ${ownBadge}
       </div>
       <div class="kit-price">${k.price || fmtBrl(k.price_cents / 100)}</div>
-      <div class="kit-meta">${k.city}/${k.state}</div>
-      <div class="kit-stock">${k.stock}</div>
-      <div class="tag-row">${(k.items||[]).map(i=>`<span class="tag">${i}</span>`).join("")}</div>
-      ${actionBtn}
+      <div class="kit-meta"><i data-lucide="map-pin" style="width:11px;height:11px"></i> ${k.city}/${k.state}</div>
+      <div class="kit-stock"><i data-lucide="package" style="width:11px;height:11px"></i> ${k.stock}</div>
+      <div class="tag-row">${(k.items||[]).slice(0,3).map(i=>`<span class="tag">${i}</span>`).join("")}</div>
     </article>`;
-  }).join("") || `<p style="color:var(--muted)">Nenhum kit.</p>`;
+  }).join("") || `<p style="color:var(--muted)">Nenhum kit encontrado.</p>`;
 
   lucide.createIcons();
 }
+
+// ─── MODAL DE DETALHE DO KIT ─────────────────────────────────────────────────
+window.openKitDetail = (kit) => {
+  const isOwn = kit.tenant_id && kit.tenant_id === currentTenant?.id;
+  const price = kit.price || fmtBrl((kit.price_cents || 0) / 100);
+
+  // Tabela de preços (estrutura mock extensível via kit.pricing_tiers)
+  const tiers = kit.pricing_tiers || [
+    { label: "1 unidade",    price },
+    { label: "5+ unidades",  price: "Consultar" },
+    { label: "10+ unidades", price: "Consultar" },
+  ];
+  const tiersHtml = tiers.map(t => `
+    <tr>
+      <td>${t.label}</td>
+      <td style="font-weight:700;color:var(--leaf)">${t.price}</td>
+    </tr>`).join("");
+
+  const itemsHtml = (kit.items||[]).map(i => `<li>${i}</li>`).join("");
+
+  const actionHtml = isOwn
+    ? `<div class="kit-own-msg"><i data-lucide="check-circle"></i> Este kit foi publicado por você</div>`
+    : `<button class="btn-primary" id="kitDetailChatBtn" style="width:100%">
+        <i data-lucide="message-circle"></i> Conversar com o distribuidor
+       </button>`;
+
+  qs("#kitDetailTitle").textContent       = kit.title;
+  qs("#kitDetailDistributor").textContent = kit.distributor;
+  qs("#kitDetailLocation").textContent    = `${kit.city}/${kit.state}`;
+  qs("#kitDetailStock").textContent       = kit.stock || "—";
+  qs("#kitDetailPricingBody").innerHTML   = tiersHtml;
+  qs("#kitDetailItems").innerHTML         = itemsHtml || "<li>—</li>";
+  qs("#kitDetailAction").innerHTML        = actionHtml;
+
+  if (!isOwn) {
+    qs("#kitDetailChatBtn")?.addEventListener("click", () => {
+      qs("#kitDetailModal").close();
+      openChatWithKit(kit);
+    });
+  }
+
+  qs("#kitDetailModal").showModal();
+  lucide.createIcons();
+};
 
 // Abre (ou cria) conversa com o distribuidor do kit e envia mensagem de interesse
 window.openChatWithKit = async (kit) => {
@@ -1620,15 +1661,20 @@ qs("#profileModal")?.addEventListener("click", (e) => {
 });
 
 qs("#saveKitBtn").addEventListener("click", async () => {
+  // Segurança: apenas Distribuidor pode publicar
+  if (currentTenant?.role?.toLowerCase() !== "distribuidor") {
+    toast("Apenas distribuidores podem publicar kits.", "error"); return;
+  }
+
   const title       = qs("#kitTitle").value.trim();
-  const distributor = qs("#kitDistributor").value.trim();
+  const distributor = currentTenant.name; // sempre usa o nome do tenant logado
   const city        = qs("#kitCity").value.trim();
   const state       = qs("#kitState").value.trim().toUpperCase();
   const price       = parseFloat(qs("#kitPrice").value);
   const stock       = parseInt(qs("#kitStock").value) || 0;
   const items       = qs("#kitItems").value.split("\n").map(s => s.trim()).filter(Boolean);
 
-  if (!title || !distributor || !city || !state || !price) {
+  if (!title || !city || !state || !price) {
     toast("Preencha os campos obrigatórios.", "error"); return;
   }
 
