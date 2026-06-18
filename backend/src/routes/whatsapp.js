@@ -26,11 +26,28 @@ import express from "express";
 import QRCode from "qrcode";
 import path from "path";
 import fs from "fs";
-import makeWASocket, {
+import * as BaileysPkg from "@whiskeysockets/baileys";
+import {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
 } from "@whiskeysockets/baileys";
+
+// O pacote @whiskeysockets/baileys mudou a forma de exportar `makeWASocket`
+// entre versões (default export vs named export vs default.default em
+// builds CJS/ESM misturados). Em vez de assumir um formato, detectamos
+// qual está disponível em tempo de execução.
+const makeWASocket =
+  (typeof BaileysPkg.default === "function" && BaileysPkg.default) ||
+  (typeof BaileysPkg.default?.default === "function" && BaileysPkg.default.default) ||
+  (typeof BaileysPkg.makeWASocket === "function" && BaileysPkg.makeWASocket);
+
+if (typeof makeWASocket !== "function") {
+  console.error(
+    "[WA] Não foi possível localizar a função makeWASocket no pacote @whiskeysockets/baileys. " +
+    "Chaves disponíveis no módulo:", Object.keys(BaileysPkg)
+  );
+}
 
 const router = express.Router();
 
