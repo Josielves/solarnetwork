@@ -670,6 +670,55 @@
 </dialog>
 
 <!-- ═══════════════════════ MODAL: PUBLICAR KIT ═══════════════════════════ -->
+<!-- ═══════════════════════ MODAL: DETALHE DO KIT ════════════════════════ -->
+<dialog id="kitDetailModal" class="modal modal-lg">
+  <div class="modal-header">
+    <div>
+      <span class="eyebrow">Marketplace</span>
+      <h2 id="kitDetailTitle">Kit</h2>
+    </div>
+    <button class="icon-btn" onclick="qs('#kitDetailModal').close()"><i data-lucide="x"></i></button>
+  </div>
+  <div class="modal-body">
+    <div class="kit-detail-grid">
+      <!-- Coluna esquerda: info + itens -->
+      <div class="kit-detail-left">
+        <div class="kit-detail-meta">
+          <div class="kit-detail-meta-item">
+            <i data-lucide="store"></i>
+            <span id="kitDetailDistributor">—</span>
+          </div>
+          <div class="kit-detail-meta-item">
+            <i data-lucide="map-pin"></i>
+            <span id="kitDetailLocation">—</span>
+          </div>
+          <div class="kit-detail-meta-item">
+            <i data-lucide="package"></i>
+            <span id="kitDetailStock">—</span>
+          </div>
+        </div>
+        <div class="kit-detail-section">
+          <h4>Composição do kit</h4>
+          <ul id="kitDetailItems" class="kit-items-list"></ul>
+        </div>
+      </div>
+      <!-- Coluna direita: tabela de preços + ação -->
+      <div class="kit-detail-right">
+        <div class="kit-detail-section">
+          <h4>Tabela de preços</h4>
+          <table class="kit-pricing-table">
+            <thead>
+              <tr><th>Quantidade</th><th>Preço</th></tr>
+            </thead>
+            <tbody id="kitDetailPricingBody"></tbody>
+          </table>
+        </div>
+        <div id="kitDetailAction" class="kit-detail-action"></div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="kitModal" class="modal">
   <div class="modal-header">
     <div>
@@ -683,10 +732,6 @@
       <div class="form-field">
         <label>Nome do kit *</label>
         <input id="kitTitle" placeholder="Ex.: Kit Residencial 6,6 kWp"/>
-      </div>
-      <div class="form-field">
-        <label>Distribuidor *</label>
-        <input id="kitDistributor" placeholder="Ex.: VoltSul Distribuidora"/>
       </div>
     </div>
     <div class="form-row">
