@@ -1461,3 +1461,48 @@ dialog:not([open]) { display: none; }
   color: var(--muted);
   margin-top: 4px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   KIT MANAGER — Admin + Distribuidor
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Painel do distribuidor no Marketplace */
+#distributorKitPanel .panel {
+  border: 2px solid var(--leaf, #16a34a);
+  background: var(--surface);
+}
+
+#distributorKitPanel .panel-header h3 {
+  color: var(--leaf, #16a34a);
+}
+
+/* Cabeçalho da seção "Todos os kits" abaixo do painel distribuidor */
+#viewMarketplace > .panel-header {
+  padding-top: 0;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+/* Tabela de kits (admin e distribuidor) */
+.admin-kit-table-wrap {
+  overflow-x: auto;
+}
+
+/* Estado vazio do painel distribuidor */
+#distKitTable [data-lucide] {
+  display: block;
+  margin: 0 auto 10px;
+  opacity: .4;
+  width: 36px;
+  height: 36px;
+}
+
+/* Badge "Aba Kits" no admin */
+[data-tab="kits"] i {
+  vertical-align: -2px;
+}
+
+/* Ajuste da toolbar do marketplace quando painel distribuidor está visível */
+#distributorKitPanel + .panel-header {
+  margin-top: 8px;
+}
