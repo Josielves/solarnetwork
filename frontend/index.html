@@ -420,9 +420,24 @@
 
     <!-- ── ADMIN ── -->
     <section class="view" id="viewAdmin">
+
+      <!-- Abas do admin -->
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="users" onclick="switchAdminTab('users',this)">
+          <i data-lucide="users"></i> Usuários
+        </button>
+        <button class="admin-tab" data-tab="leads" onclick="switchAdminTab('leads',this)">
+          <i data-lucide="kanban"></i> Leads
+        </button>
+        <button class="admin-tab" data-tab="settings" onclick="switchAdminTab('settings',this)">
+          <i data-lucide="settings"></i> Configurações
+        </button>
+      </div>
+
       <div class="admin-grid">
 
-        <!-- Usuários do sistema -->
+        <!-- ── ABA USUÁRIOS ── -->
+        <div id="adminTabUsers" class="admin-tab-panel">
         <article class="panel panel-full">
           <div class="panel-header">
             <h3>Usuários do sistema</h3>
@@ -432,6 +447,30 @@
           </div>
           <div id="userTable" class="user-table"></div>
         </article>
+        </div>
+
+        <!-- ── ABA LEADS ── -->
+        <div id="adminTabLeads" class="admin-tab-panel" style="display:none">
+        <article class="panel panel-full">
+          <div class="panel-header">
+            <h3>Gerenciar Leads</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="adminLeadUserFilter" class="select-sm" onchange="renderAdminLeads()">
+                <option value="">Todos os responsáveis</option>
+              </select>
+              <select id="adminLeadStageFilter" class="select-sm" onchange="renderAdminLeads()">
+                <option value="">Todos os estágios</option>
+                <option>Contato</option><option>Visita</option><option>Proposta</option>
+                <option>Negociação</option><option>Fechado</option><option>Perdido</option>
+              </select>
+            </div>
+          </div>
+          <div id="adminLeadTable"></div>
+        </article>
+        </div>
+
+        <!-- ── ABA CONFIGURAÇÕES ── -->
+        <div id="adminTabSettings" class="admin-tab-panel" style="display:none">
 
         <!-- Configurações da empresa -->
         <article class="panel panel-full">
@@ -499,6 +538,7 @@
             </button>
           </div>
         </article>
+        </div><!-- /adminTabSettings -->
 
       </div>
     </section>
@@ -559,6 +599,12 @@
         <input id="leadValue" type="number" placeholder="45000"/>
       </div>
     </div>
+    <div class="form-field full" id="leadAssignRow" style="display:none">
+      <label>Responsável</label>
+      <select id="leadAssignedTo">
+        <option value="">— Sem responsável —</option>
+      </select>
+    </div>
     <div class="form-field full">
       <label>Observações</label>
       <textarea id="leadNote" placeholder="Detalhes do projeto, urgência, tipo de telhado…"></textarea>
@@ -568,6 +614,33 @@
     <button class="btn-ghost" id="cancelLeadModal">Cancelar</button>
     <button class="btn-primary" id="saveLeadBtn">
       <i data-lucide="save"></i> Salvar lead
+    </button>
+  </div>
+</dialog>
+
+<!-- ═══════════════════════ MODAL: ATRIBUIR LEAD ═════════════════════════ -->
+<dialog id="assignLeadModal" class="modal" style="max-width:420px">
+  <div class="modal-header">
+    <div>
+      <span class="eyebrow">Admin</span>
+      <h2>Atribuir lead</h2>
+    </div>
+    <button class="icon-btn" id="closeAssignLeadModal"><i data-lucide="x"></i></button>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="assignLeadId"/>
+    <p id="assignLeadName" style="font-weight:600;font-size:15px;margin-bottom:14px;color:var(--text)"></p>
+    <div class="form-field">
+      <label>Responsável</label>
+      <select id="assignLeadUser">
+        <option value="">— Sem responsável —</option>
+      </select>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-ghost" id="cancelAssignLeadModal">Cancelar</button>
+    <button class="btn-primary" id="saveAssignLeadBtn">
+      <i data-lucide="user-check"></i> Atribuir
     </button>
   </div>
 </dialog>
