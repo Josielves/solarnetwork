@@ -26,8 +26,7 @@ import express from "express";
 import QRCode from "qrcode";
 import path from "path";
 import fs from "fs";
-import {
-  default as makeWASocket,
+import makeWASocket, {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
