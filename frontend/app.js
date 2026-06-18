@@ -471,7 +471,8 @@ function renderMarketplace() {
   }
 
   qs("#kitGrid").innerHTML = kits.map(k => {
-    const isOwn = k.tenant_id && k.tenant_id === currentTenant?.id;
+    const isOwn = (k.tenant_id && k.tenant_id === currentTenant?.id)
+      || (!k.tenant_id && k.distributor === currentTenant?.name);
     const ownBadge = isOwn ? `<span class="kit-own-badge">Seu kit</span>` : "";
     const kData = JSON.stringify(k).replace(/"/g, "&quot;");
     return `
@@ -495,7 +496,8 @@ function renderMarketplace() {
 
 // ─── MODAL DE DETALHE DO KIT ─────────────────────────────────────────────────
 window.openKitDetail = (kit) => {
-  const isOwn = kit.tenant_id && kit.tenant_id === currentTenant?.id;
+  const isOwn = (kit.tenant_id && kit.tenant_id === currentTenant?.id)
+    || (!kit.tenant_id && kit.distributor === currentTenant?.name);
   const price = kit.price || fmtBrl((kit.price_cents || 0) / 100);
 
   // Tabela de preços (estrutura mock extensível via kit.pricing_tiers)
@@ -1684,9 +1686,9 @@ qs("#saveKitBtn").addEventListener("click", async () => {
   try {
     const data = await api("/api/kits", {
       method: "POST",
-      body: { title, distributor, city, state, price_cents: Math.round(price * 100), stock, items },
+      body: { title, distributor, city, state, price_cents: Math.round(price * 100), stock, items, tenant_id: currentTenant.id },
     });
-    appData.kits.unshift({ ...data, tenant_id: data.tenant_id || currentTenant?.id, price: fmtBrl(data.price_cents / 100), stock: data.stock + " unidades" });
+    appData.kits.unshift({ ...data, tenant_id: data.tenant_id || currentTenant.id, price: fmtBrl(data.price_cents / 100), stock: data.stock + " unidades" });
     qs("#kitModal").close();
     ["#kitTitle","#kitDistributor","#kitCity","#kitState","#kitPrice","#kitStock","#kitItems"]
       .forEach(s => qs(s).value = "");
@@ -2209,11 +2211,17 @@ qs("#saveAdminKitBtn")?.addEventListener("click", async () => {
   const price    = parseFloat(qs("#adminKitModalPrice").value);
   const stock    = parseInt(qs("#adminKitModalStock").value) || 0;
   const power    = parseFloat(qs("#adminKitModalPower").value) || null;
-  const tenantId = qs("#adminKitModalTenant")?.value || currentTenant?.id;
+  // tenant_id: admin escolhe pelo select; distribuidor usa o próprio tenant
+  const tenantId = (qs("#adminKitTenantRow")?.style.display !== "none" && qs("#adminKitModalTenant")?.value)
+    ? qs("#adminKitModalTenant").value
+    : currentTenant?.id;
   const items    = (qs("#adminKitModalItems").value || "").split("\n").map(s => s.trim()).filter(Boolean);
 
   if (!title || !city || !state || !price) {
     toast("Preencha: nome, cidade, estado e preço.", "error"); return;
+  }
+  if (!tenantId) {
+    toast("Selecione o distribuidor.", "error"); return;
   }
 
   const distributorTenant = appData.tenants.find(t => t.id === tenantId) || currentTenant;
@@ -2229,7 +2237,8 @@ qs("#saveAdminKitBtn")?.addEventListener("click", async () => {
       toast("Kit atualizado!");
     } else {
       const created = await api("/api/kits", { method: "POST", body });
-      appData.kits.unshift(created);
+      // Garante tenant_id no cache — usa o retorno da API ou o valor enviado
+      appData.kits.unshift({ ...body, ...created, tenant_id: created.tenant_id || tenantId, price: fmtBrl(price) });
       toast("Kit criado com sucesso!");
     }
     qs("#adminKitModal").close();
@@ -2275,7 +2284,9 @@ window.renderDistributorKits = () => {
 
   const search = (qs("#distKitSearch")?.value || "").toLowerCase();
   const myKits = appData.kits.filter(k => {
-    if (k.tenant_id !== currentTenant?.id && k.distributor !== currentTenant?.name) return false;
+    const isOwner = k.tenant_id === currentTenant?.id
+      || (!k.tenant_id && k.distributor === currentTenant?.name);
+    if (!isOwner) return false;
     return !search || `${k.title} ${k.city} ${k.state}`.toLowerCase().includes(search);
   });
 
