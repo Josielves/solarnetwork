@@ -636,8 +636,14 @@ const WA_STATUS_INFO = {
 
 async function fetchWAStatus() {
   try {
-    return await api("/api/whatsapp/status");
-  } catch {
+    const payload = await api("/api/whatsapp/status");
+    // DEBUG — mostra o payload bruto na tela para diagnóstico
+    const dbg = qs("#waDebug");
+    if (dbg) dbg.textContent = JSON.stringify(payload, null, 2);
+    return payload;
+  } catch (e) {
+    const dbg = qs("#waDebug");
+    if (dbg) dbg.textContent = "ERRO: " + e.message;
     return { status: "disconnected", connected: false, qr: "", phone: "" };
   }
 }
