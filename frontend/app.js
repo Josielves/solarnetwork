@@ -235,6 +235,7 @@ function renderUI() {
   renderMarketplace();
   renderAdmin();
   renderSubscription();
+  renderDistributorKitPanel();
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
@@ -883,6 +884,7 @@ window.switchAdminTab = (tab, btn) => {
   qsa(".admin-tab-panel").forEach(p => p.style.display = "none");
   qs(`#adminTab${tab.charAt(0).toUpperCase()+tab.slice(1)}`).style.display = "";
   if (tab === "leads") renderAdminLeads();
+  if (tab === "kits")  renderAdminKits();
 };
 
 // ─── Admin: lista de todos os leads com atribuição ────────────────────────────
@@ -2082,3 +2084,275 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GERENCIAMENTO DE KITS — ADMIN
+// ═══════════════════════════════════════════════════════════════════════════
+
+window.renderAdminKits = async () => {
+  const tableEl = qs("#adminKitTable");
+  if (!tableEl) return;
+  tableEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px">Carregando kits…</div>`;
+
+  try {
+    const search  = (qs("#adminKitSearch")?.value || "").toLowerCase();
+    const tenantF = qs("#adminKitTenantFilter")?.value || "";
+
+    const kits = await api("/api/kits");
+    appData.kits = kits || [];
+
+    const filterEl = qs("#adminKitTenantFilter");
+    if (filterEl && filterEl.options.length <= 1) {
+      const names = [...new Set(kits.map(k => k.distributor).filter(Boolean))].sort();
+      names.forEach(n => filterEl.add(new Option(n, n)));
+    }
+
+    const filtered = kits.filter(k => {
+      const blob = `${k.title} ${k.distributor} ${k.city} ${k.state}`.toLowerCase();
+      return (!search || blob.includes(search)) && (!tenantF || k.distributor === tenantF);
+    });
+
+    if (!filtered.length) {
+      tableEl.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:12px">Nenhum kit encontrado.</p>`;
+      return;
+    }
+
+    tableEl.innerHTML = `
+      <table class="admin-lead-table">
+        <thead>
+          <tr>
+            <th>Kit</th><th>Distribuidor</th><th>Cidade / UF</th>
+            <th>Preço</th><th>Estoque</th><th style="width:110px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map(k => {
+            const price = k.price || fmtBrl((k.price_cents || 0) / 100);
+            const kJson = JSON.stringify(k).replace(/"/g, "&quot;");
+            return `<tr>
+              <td style="font-weight:600">${esc(k.title)}</td>
+              <td>${esc(k.distributor || "–")}</td>
+              <td>${esc(k.city || "–")} / ${esc(k.state || "–")}</td>
+              <td style="color:var(--leaf);font-weight:700">${price}</td>
+              <td>${k.stock ?? "–"}</td>
+              <td style="display:flex;gap:6px">
+                <button class="btn-ghost sm" onclick='openAdminKitModal(${kJson})'>
+                  <i data-lucide="pencil"></i>
+                </button>
+                <button class="btn-ghost sm" style="color:var(--danger,#e53e3e)" onclick="confirmDeleteKit('${k.id}','${esc(k.title).replace(/'/g,"\\'")}','admin')">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+    lucide.createIcons();
+  } catch (e) {
+    tableEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px">Erro: ${e.message}</div>`;
+  }
+};
+
+window.openAdminKitModal = async (kit = null) => {
+  // Popula select de tenants distribuidores
+  const sel = qs("#adminKitModalTenant");
+  if (sel && sel.options.length <= 1) {
+    const distributors = appData.tenants.filter(t => t.role?.toLowerCase() === "distribuidor");
+    distributors.forEach(t => sel.add(new Option(t.name, t.id)));
+  }
+
+  // Linha de tenant: admin vê, distribuidor não vê
+  const tenantRow = qs("#adminKitTenantRow");
+  if (tenantRow) tenantRow.style.display = isAdmin() ? "" : "none";
+
+  const titleH2 = qs("#adminKitModalTitle2");
+  const eyebrow = qs("#adminKitModalEyebrow");
+  if (eyebrow) eyebrow.textContent = "Admin › Kits";
+
+  if (kit) {
+    if (titleH2) titleH2.textContent = "Editar Kit";
+    qs("#adminKitModalId").value    = kit.id || "";
+    qs("#adminKitModalTitleInput").value = kit.title || "";
+    qs("#adminKitModalCity").value  = kit.city || "";
+    qs("#adminKitModalState").value = kit.state || "";
+    qs("#adminKitModalPrice").value = kit.price_cents
+      ? kit.price_cents / 100
+      : (parseFloat(String(kit.price || "0").replace(/[^\d.]/g, "")) || "");
+    qs("#adminKitModalStock").value = kit.stock ?? "";
+    qs("#adminKitModalPower").value = kit.power || "";
+    qs("#adminKitModalItems").value = (kit.items || []).join("\n");
+    if (sel) sel.value = kit.tenant_id || "";
+  } else {
+    if (titleH2) titleH2.textContent = "Novo Kit";
+    qs("#adminKitModalId").value    = "";
+    qs("#adminKitModalTitleInput").value = "";
+    qs("#adminKitModalCity").value  = currentTenant?.city || "";
+    qs("#adminKitModalState").value = currentTenant?.state || "";
+    qs("#adminKitModalPrice").value = "";
+    qs("#adminKitModalStock").value = "";
+    qs("#adminKitModalPower").value = "";
+    qs("#adminKitModalItems").value = "";
+    if (sel) sel.value = currentTenant?.id || "";
+  }
+  qs("#adminKitModal").showModal();
+  lucide.createIcons();
+};
+
+qs("#closeAdminKitModal")?.addEventListener("click",  () => qs("#adminKitModal").close());
+qs("#cancelAdminKitModal")?.addEventListener("click", () => qs("#adminKitModal").close());
+
+qs("#saveAdminKitBtn")?.addEventListener("click", async () => {
+  const id       = qs("#adminKitModalId").value.trim();
+  const title    = qs("#adminKitModalTitleInput").value.trim();
+  const city     = qs("#adminKitModalCity").value.trim();
+  const state    = qs("#adminKitModalState").value.trim().toUpperCase();
+  const price    = parseFloat(qs("#adminKitModalPrice").value);
+  const stock    = parseInt(qs("#adminKitModalStock").value) || 0;
+  const power    = parseFloat(qs("#adminKitModalPower").value) || null;
+  const tenantId = qs("#adminKitModalTenant")?.value || currentTenant?.id;
+  const items    = (qs("#adminKitModalItems").value || "").split("\n").map(s => s.trim()).filter(Boolean);
+
+  if (!title || !city || !state || !price) {
+    toast("Preencha: nome, cidade, estado e preço.", "error"); return;
+  }
+
+  const distributorTenant = appData.tenants.find(t => t.id === tenantId) || currentTenant;
+  const distributor = distributorTenant?.name || currentTenant?.name || "";
+  const body = { title, city, state, price_cents: Math.round(price * 100), stock, power, items, distributor, tenant_id: tenantId };
+
+  setLoading("#saveAdminKitBtn", "Salvando…");
+  try {
+    if (id) {
+      await api(`/api/kits/${id}`, { method: "PATCH", body });
+      const idx = appData.kits.findIndex(k => k.id === id);
+      if (idx >= 0) appData.kits[idx] = { ...appData.kits[idx], ...body, id, price: fmtBrl(price) };
+      toast("Kit atualizado!");
+    } else {
+      const created = await api("/api/kits", { method: "POST", body });
+      appData.kits.unshift(created);
+      toast("Kit criado com sucesso!");
+    }
+    qs("#adminKitModal").close();
+    renderAdminKits();
+    renderMarketplace();
+    renderDistributorKits();
+  } catch (e) {
+    toast("Erro: " + e.message, "error");
+  }
+  resetBtn("#saveAdminKitBtn", `<i data-lucide="save"></i> Salvar kit`);
+  lucide.createIcons();
+});
+
+window.confirmDeleteKit = async (kitId, kitTitle, source) => {
+  if (!confirm(`Excluir o kit "${kitTitle}"? Esta ação não pode ser desfeita.`)) return;
+  try {
+    await api(`/api/kits/${kitId}`, { method: "DELETE" });
+    appData.kits = appData.kits.filter(k => k.id !== kitId);
+    toast(`Kit "${kitTitle}" excluído.`);
+    if (source === "admin") renderAdminKits();
+    renderDistributorKits();
+    renderMarketplace();
+  } catch (e) {
+    toast("Erro ao excluir: " + e.message, "error");
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GERENCIAMENTO DE KITS — DISTRIBUIDOR
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderDistributorKitPanel() {
+  const panel = qs("#distributorKitPanel");
+  if (!panel) return;
+  const isDistributor = currentTenant?.role?.toLowerCase() === "distribuidor";
+  panel.style.display = isDistributor ? "" : "none";
+  if (isDistributor) renderDistributorKits();
+}
+
+window.renderDistributorKits = () => {
+  const tableEl = qs("#distKitTable");
+  if (!tableEl) return;
+
+  const search = (qs("#distKitSearch")?.value || "").toLowerCase();
+  const myKits = appData.kits.filter(k => {
+    if (k.tenant_id !== currentTenant?.id && k.distributor !== currentTenant?.name) return false;
+    return !search || `${k.title} ${k.city} ${k.state}`.toLowerCase().includes(search);
+  });
+
+  if (!myKits.length) {
+    tableEl.innerHTML = `
+      <div style="text-align:center;padding:32px;color:var(--muted)">
+        <p style="font-size:13px">Você ainda não publicou nenhum kit.</p>
+        <button class="btn-primary sm" style="margin-top:12px" onclick="openDistributorKitModal()">
+          <i data-lucide="plus"></i> Publicar primeiro kit
+        </button>
+      </div>`;
+    lucide.createIcons();
+    return;
+  }
+
+  tableEl.innerHTML = `
+    <table class="admin-lead-table">
+      <thead>
+        <tr>
+          <th>Kit</th><th>Cidade / UF</th><th>Preço</th><th>Estoque</th><th style="width:130px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${myKits.map(k => {
+          const price = k.price || fmtBrl((k.price_cents || 0) / 100);
+          const kJson = JSON.stringify(k).replace(/"/g, "&quot;");
+          return `<tr>
+            <td style="font-weight:600">${esc(k.title)}</td>
+            <td>${esc(k.city || "–")} / ${esc(k.state || "–")}</td>
+            <td style="color:var(--leaf);font-weight:700">${price}</td>
+            <td>${k.stock ?? "–"}</td>
+            <td style="display:flex;gap:6px">
+              <button class="btn-ghost sm" onclick='openDistributorKitModal(${kJson})'>
+                <i data-lucide="pencil"></i> Editar
+              </button>
+              <button class="btn-ghost sm" style="color:var(--danger,#e53e3e)" onclick="confirmDeleteKit('${k.id}','${esc(k.title).replace(/'/g,"\\'")}','dist')">
+                <i data-lucide="trash-2"></i>
+              </button>
+            </td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>`;
+  lucide.createIcons();
+};
+
+window.openDistributorKitModal = (kit = null) => {
+  const tenantRow = qs("#adminKitTenantRow");
+  if (tenantRow) tenantRow.style.display = "none";
+
+  const eyebrow = qs("#adminKitModalEyebrow");
+  const titleH2 = qs("#adminKitModalTitle2");
+  if (eyebrow) eyebrow.textContent = "Distribuidor › Meus Kits";
+
+  if (kit) {
+    if (titleH2) titleH2.textContent = "Editar Kit";
+    qs("#adminKitModalId").value    = kit.id || "";
+    qs("#adminKitModalTitleInput").value = kit.title || "";
+    qs("#adminKitModalCity").value  = kit.city || "";
+    qs("#adminKitModalState").value = kit.state || "";
+    qs("#adminKitModalPrice").value = kit.price_cents
+      ? kit.price_cents / 100
+      : (parseFloat(String(kit.price || "0").replace(/[^\d.]/g, "")) || "");
+    qs("#adminKitModalStock").value = kit.stock ?? "";
+    qs("#adminKitModalPower").value = kit.power || "";
+    qs("#adminKitModalItems").value = (kit.items || []).join("\n");
+  } else {
+    if (titleH2) titleH2.textContent = "Novo Kit";
+    qs("#adminKitModalId").value    = "";
+    qs("#adminKitModalTitleInput").value = "";
+    qs("#adminKitModalCity").value  = currentTenant?.city || "";
+    qs("#adminKitModalState").value = currentTenant?.state || "";
+    qs("#adminKitModalPrice").value = "";
+    qs("#adminKitModalStock").value = "";
+    qs("#adminKitModalPower").value = "";
+    qs("#adminKitModalItems").value = "";
+  }
+  qs("#adminKitModal").showModal();
+  lucide.createIcons();
+};
