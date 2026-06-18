@@ -7,22 +7,20 @@
 //   import whatsappRouter from "./whatsapp.js"; // ajuste o caminho se necessário
 //   app.use("/api/whatsapp", authMiddleware, whatsappRouter);
 //
-// `authMiddleware` é o middleware que você já usa para validar o JWT do
-// Supabase (o que popula req.user / req.tenantId). Se seu middleware usa
-// outro nome, é só trocar.
-//
 // Endpoints expostos:
 //   POST /api/whatsapp/connect      -> inicia a sessão e começa a gerar o QR
 //   GET  /api/whatsapp/status       -> { status, qr, phone, error }
 //   POST /api/whatsapp/disconnect   -> desconecta e limpa a sessão
 //   GET  /api/whatsapp/messages     -> lista mensagens recebidas/enviadas
 //
-// O front-end (app.js) já está pronto para consumir esses endpoints
-// exatamente como estão (showQR, connectWA, polling de status etc.)
-//
-// DEBUG: se o QR não aparecer, olhe os logs do Railway/Render. Este módulo
-// agora loga tudo no console (em vez de silenciar), incluindo o motivo de
-// qualquer fechamento de conexão.
+// CORREÇÃO (vs. versão anterior):
+//   `fetchLatestBaileysVersion()` faz uma chamada de rede para checar a
+//   versão mais recente do protocolo do WhatsApp Web. Se essa chamada
+//   travar (rede do Railway bloqueando o domínio, DNS lento, etc.) e nunca
+//   resolver nem rejeitar, o código ficava parado ali para sempre — sem
+//   erro, sem log, sem QR. `makeWASocket()` nunca era chamado.
+//   Agora há um timeout de 5s com fallback para uma versão fixa conhecida,
+//   garantindo que o socket seja criado mesmo se a checagem de versão falhar.
 
 import express from "express";
 import QRCode from "qrcode";
@@ -38,9 +36,6 @@ import {
 const router = express.Router();
 
 // ─── ESTADO EM MEMÓRIA ────────────────────────────────────────────────────
-// OBS: simples e funcional para 1 número de WhatsApp por instância do
-// backend. Se no futuro precisar de 1 sessão por tenant, troque `state`
-// por um Map<tenantId, state> e use req.tenantId para escolher a sessão.
 const state = {
   sock: null,
   status: "disconnected", // "disconnected" | "connecting" | "connected"
@@ -55,6 +50,27 @@ const AUTH_DIR = path.join(process.cwd(), "baileys_auth");
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
+// Versão fixa de fallback, usada apenas se a checagem online travar/falhar.
+// Pode atualizar de tempos em tempos consultando:
+// https://github.com/WhiskeySockets/Baileys/blob/master/src/Defaults/baileys-version.json
+const FALLBACK_WA_VERSION = [2, 3000, 1023223821];
+
+async function getBaileysVersion() {
+  try {
+    const result = await Promise.race([
+      fetchLatestBaileysVersion(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("timeout ao buscar versão do protocolo")), 5000)
+      ),
+    ]);
+    console.log(`[WA] Versão do protocolo (online): ${result.version.join(".")} (latest: ${result.isLatest})`);
+    return result.version;
+  } catch (e) {
+    console.warn("[WA] Não foi possível buscar a versão mais recente, usando fallback fixo:", e.message);
+    return FALLBACK_WA_VERSION;
+  }
+}
+
 // ─── CONEXÃO COM O WHATSAPP ────────────────────────────────────────────────
 async function startSock() {
   if (state.status === "connecting" || state.status === "connected") return;
@@ -66,11 +82,8 @@ async function startSock() {
   try {
     const { state: authState, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
-    // Busca a versão atual do protocolo do WhatsApp Web. Usar uma versão
-    // desatualizada é a causa mais comum de "conecta mas nunca gera QR" ou
-    // "QR aparece e some em loop".
-    const { version, isLatest } = await fetchLatestBaileysVersion();
-    console.log(`[WA] Usando versão do protocolo WA Web: ${version.join(".")} (latest: ${isLatest})`);
+    const version = await getBaileysVersion();
+    console.log(`[WA] Usando versão do protocolo WA Web: ${version.join(".")}`);
 
     const sock = makeWASocket({
       auth: authState,
@@ -172,8 +185,6 @@ async function startSock() {
 
 // ─── ROTAS ──────────────────────────────────────────────────────────────────
 
-// Inicia a conexão (gera QR). Responde imediatamente; o front faz polling
-// em /status para acompanhar o progresso.
 router.post("/connect", async (req, res) => {
   try {
     if (state.status === "connected") {
@@ -191,7 +202,6 @@ router.post("/connect", async (req, res) => {
   }
 });
 
-// Status atual + QR (se houver)
 router.get("/status", (req, res) => {
   res.json({
     status: state.status,
@@ -201,7 +211,6 @@ router.get("/status", (req, res) => {
   });
 });
 
-// Desconecta e limpa a sessão salva
 router.post("/disconnect", async (req, res) => {
   try {
     if (state.sock) {
@@ -220,7 +229,6 @@ router.post("/disconnect", async (req, res) => {
   }
 });
 
-// Lista mensagens recebidas/enviadas
 router.get("/messages", (req, res) => {
   res.json(state.messages);
 });
