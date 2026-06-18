@@ -352,35 +352,60 @@
     <!-- ── WHATSAPP ── -->
     <section class="view" id="viewWhatsapp">
       <div class="whatsapp-layout">
-        <article class="panel">
+
+        <!-- Banner de status -->
+        <article class="panel panel-full">
           <div class="panel-header">
-            <h3><i data-lucide="message-circle"></i> Integração WhatsApp</h3>
-          </div>
-          <div class="wa-status">
-            <div class="wa-badge disconnected" id="waBadge">
-              <i data-lucide="wifi-off"></i> Desconectado
-            </div>
-            <p>Conecte seu número WhatsApp para receber leads, enviar propostas e se comunicar com parceiros diretamente pela plataforma.</p>
-            <button class="btn-primary" id="waConnectBtn">
-              <i data-lucide="qr-code"></i> Gerar QR Code
+            <h3><i data-lucide="message-circle"></i> Agente WhatsApp</h3>
+            <button class="btn-ghost sm" id="waRefreshBtn">
+              <i data-lucide="refresh-cw"></i> Atualizar status
             </button>
-            <div id="waQRContainer" style="display:none;margin-top:20px;text-align:center">
-              <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
-                Abra o WhatsApp no celular → <strong>Dispositivos conectados</strong> → <strong>Conectar dispositivo</strong> → escaneie o QR abaixo
-              </p>
-              <div style="display:inline-block;padding:12px;background:#fff;border-radius:12px;border:2px solid var(--border)">
-                <img id="waQRImg" src="" alt="QR Code WhatsApp" style="width:220px;height:220px;display:block"/>
-              </div>
-              <p style="font-size:12px;color:var(--muted);margin-top:10px">QR Code expira em 60 segundos</p>
-            </div>
           </div>
-          <div class="wa-features">
-            <div class="wa-feature"><i data-lucide="check-circle"></i> Receba leads via WhatsApp automaticamente</div>
-            <div class="wa-feature"><i data-lucide="check-circle"></i> Envie propostas em PDF pelo chat</div>
-            <div class="wa-feature"><i data-lucide="check-circle"></i> Notificações de novos kits disponíveis</div>
-            <div class="wa-feature"><i data-lucide="check-circle"></i> Chatbot para triagem de clientes finais</div>
+          <div id="waStatusBanner" style="padding:20px;border-radius:10px;margin:0 0 4px">
+            <p style="margin:0;color:var(--muted);font-size:13px">Verificando status do agente…</p>
           </div>
         </article>
+
+        <!-- Conectar -->
+        <article class="panel">
+          <div class="panel-header"><h3>Conectar agente</h3></div>
+          <div style="padding:20px;display:grid;gap:14px;max-width:420px">
+            <p style="margin:0;font-size:13px;color:var(--ink2)">
+              Clique em <strong>Gerar QR Code</strong> para iniciar ou reconectar o agente WhatsApp. Após conectado, escaneie o código com seu celular.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn-primary" id="waConnectBtn">
+                <i data-lucide="qr-code"></i> Gerar QR Code
+              </button>
+              <button class="btn-ghost" id="waDisconnectBtn" style="display:none">
+                <i data-lucide="wifi-off"></i> Desconectar
+              </button>
+            </div>
+            <p id="waError" style="color:var(--danger,#e53e3e);font-size:12px;margin:0;min-height:14px"></p>
+          </div>
+
+          <!-- QR Code -->
+          <div id="waQRContainer" style="display:none;padding:0 20px 20px;text-align:center">
+            <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+              Abra o WhatsApp → <strong>Dispositivos conectados</strong> → <strong>Conectar dispositivo</strong> → escaneie o QR abaixo
+            </p>
+            <div style="display:inline-block;padding:12px;background:#fff;border-radius:12px;border:2px solid var(--border)">
+              <div id="waQRDisplay"></div>
+            </div>
+            <p style="font-size:12px;color:var(--muted);margin-top:10px">QR Code expira em ~60 segundos. Clique em "Atualizar status" se expirar.</p>
+          </div>
+
+          <!-- Como funciona -->
+          <div style="padding:0 20px 20px;display:grid;gap:8px;font-size:13px;color:var(--ink2)">
+            <strong style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Como funciona</strong>
+            <p style="margin:0"><i data-lucide="check-circle" style="width:13px;height:13px;color:var(--leaf);vertical-align:-2px"></i> Clique em Gerar QR Code — o backend inicia o agente</p>
+            <p style="margin:0"><i data-lucide="check-circle" style="width:13px;height:13px;color:var(--leaf);vertical-align:-2px"></i> Escaneie o QR com o WhatsApp do celular</p>
+            <p style="margin:0"><i data-lucide="check-circle" style="width:13px;height:13px;color:var(--leaf);vertical-align:-2px"></i> Receba leads e envie propostas direto pelo WhatsApp</p>
+            <p style="margin:0"><i data-lucide="check-circle" style="width:13px;height:13px;color:var(--leaf);vertical-align:-2px"></i> Chatbot para triagem automática de clientes</p>
+          </div>
+        </article>
+
+        <!-- Mensagens recentes -->
         <article class="panel">
           <div class="panel-header"><h3>Mensagens recentes</h3></div>
           <div class="wa-messages">
@@ -390,6 +415,7 @@
             </div>
           </div>
         </article>
+
       </div>
     </section>
 
