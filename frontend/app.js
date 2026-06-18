@@ -621,106 +621,141 @@ window.openChatWithKit = async (kit) => {
 };
 
 // ─── WHATSAPP ─────────────────────────────────────────────────────────────────
-async function loadWAStatus() {
-  try {
-    const { status, qr, phone } = await api("/api/whatsapp/status");
-    updateWABadge(status, phone);
-    if (qr) showQR(qr);
-  } catch (e) { console.warn("WA status:", e.message); }
-}
-
-function updateWABadge(status, phone) {
-  const badge = qs("#waBadge");
-  if (status === "connected") {
-    badge.className = "wa-badge connected";
-    badge.innerHTML = `<i data-lucide="wifi"></i> Conectado${phone ? " · " + phone : ""}`;
-    qs("#waConnectBtn").textContent = "Desconectar";
-    qs("#waConnectBtn").onclick = disconnectWA;
-  } else if (status === "connecting") {
-    badge.className = "wa-badge disconnected";
-    badge.innerHTML = `<i data-lucide="loader"></i> Aguardando QR…`;
-    qs("#waConnectBtn").textContent = "Cancelar";
-    qs("#waConnectBtn").onclick = disconnectWA;
-  } else {
-    badge.className = "wa-badge disconnected";
-    badge.innerHTML = `<i data-lucide="wifi-off"></i> Desconectado`;
-    qs("#waConnectBtn").innerHTML = `<i data-lucide="qr-code"></i> Gerar QR Code`;
-    qs("#waConnectBtn").onclick = connectWA;
-  }
-  lucide.createIcons();
-}
-
-function showQR(qrDataUrl) {
-  const container = qs("#waQRContainer");
-  const img       = qs("#waQRImg");
-  if (container && img) {
-    img.src = qrDataUrl;
-    container.style.display = "block";
-  }
-}
-
-function hideQR() {
-  const container = qs("#waQRContainer");
-  if (container) container.style.display = "none";
-}
-
 let waPolling = null;
+let waPollingCount = 0;
+
+const WA_STATUS_INFO = {
+  idle:         { icon: "⚫", label: "Agente não iniciado",  color: "#64748b", bg: "var(--surface)" },
+  connecting:   { icon: "🟡", label: "Conectando…",         color: "#b45309", bg: "#fefce8" },
+  qr:           { icon: "📷", label: "Aguardando QR code",  color: "#1d4ed8", bg: "#eff6ff" },
+  connected:    { icon: "🟢", label: "Agente conectado",    color: "#15803d", bg: "#f0fdf4" },
+  disconnected: { icon: "🔴", label: "Desconectado",        color: "#b91c1c", bg: "#fef2f2" },
+  reconnecting: { icon: "🟠", label: "Reconectando…",       color: "#c2410c", bg: "#fff7ed" },
+  error:        { icon: "❌", label: "Erro na conexão",     color: "#b91c1c", bg: "#fef2f2" },
+};
+
+async function fetchWAStatus() {
+  try {
+    return await api("/api/whatsapp/status");
+  } catch {
+    return { status: "disconnected", connected: false, qr: "", phone: "" };
+  }
+}
+
+function updateWABanner(payload) {
+  const banner = qs("#waStatusBanner");
+  if (!banner) return;
+
+  const info = WA_STATUS_INFO[payload.status] || WA_STATUS_INFO.disconnected;
+  banner.style.background = info.bg;
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="font-size:1.8rem;line-height:1">${info.icon}</span>
+      <div>
+        <strong style="font-size:14px;color:${info.color}">${info.label}</strong>
+        ${payload.phone ? `<p style="margin:3px 0 0;font-size:12px;color:var(--muted)"><i data-lucide="smartphone" style="width:11px;height:11px;vertical-align:-1px"></i> ${payload.phone}</p>` : ""}
+        ${payload.qrGeneratedAt && payload.status === "qr" ? `<p style="margin:3px 0 0;font-size:12px;color:var(--muted)">QR gerado às ${new Date(payload.qrGeneratedAt).toLocaleTimeString("pt-BR")}</p>` : ""}
+      </div>
+    </div>`;
+  lucide.createIcons();
+
+  // Botões connect/disconnect
+  const connectBtn    = qs("#waConnectBtn");
+  const disconnectBtn = qs("#waDisconnectBtn");
+  if (connectBtn && disconnectBtn) {
+    const isConnected = payload.status === "connected";
+    connectBtn.style.display    = isConnected ? "none" : "";
+    disconnectBtn.style.display = isConnected ? ""     : "none";
+  }
+
+  // QR Code — renderiza via api.qrserver.com (sem lib externa)
+  const qrContainer = qs("#waQRContainer");
+  const qrDisplay   = qs("#waQRDisplay");
+  if (qrContainer && qrDisplay) {
+    if (payload.qr && payload.status === "qr") {
+      qrContainer.style.display = "";
+      qrDisplay.innerHTML = `
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payload.qr)}"
+             alt="QR Code WhatsApp" width="220" height="220"
+             style="display:block;border-radius:4px"/>`;
+    } else {
+      qrContainer.style.display = "none";
+      qrDisplay.innerHTML = "";
+    }
+  }
+
+  // Para polling se conectado
+  if (payload.status === "connected" && waPolling) {
+    clearInterval(waPolling);
+    waPolling = null;
+    toast("WhatsApp conectado!");
+    loadWAMessages();
+  }
+}
+
+async function loadWAStatus() {
+  const payload = await fetchWAStatus();
+  updateWABanner(payload);
+  // Retoma polling se o agente já estava em processo de conexão
+  if (["qr", "connecting", "reconnecting"].includes(payload.status)) {
+    startWAPolling();
+  }
+}
+
+function startWAPolling() {
+  if (waPolling) clearInterval(waPolling);
+  waPollingCount = 0;
+  waPolling = setInterval(async () => {
+    waPollingCount++;
+    // Para após ~2,5 min (75 × 2s) ou se saiu da view
+    if (waPollingCount > 75) {
+      clearInterval(waPolling);
+      waPolling = null;
+      return;
+    }
+    const payload = await fetchWAStatus();
+    updateWABanner(payload);
+    if (payload.status === "connected") {
+      clearInterval(waPolling);
+      waPolling = null;
+    }
+  }, 2000);
+}
 
 async function connectWA() {
-  qs("#waConnectBtn").textContent = "Iniciando…";
-  qs("#waConnectBtn").disabled = true;
+  const btn   = qs("#waConnectBtn");
+  const errEl = qs("#waError");
+  if (errEl) errEl.textContent = "";
+  btn.disabled  = true;
+  btn.innerHTML = `<i data-lucide="loader"></i> Iniciando…`;
+  lucide.createIcons();
 
   try {
-    // Dispara conexão no backend (não aguarda — retorna rápido)
+    // Dispara a conexão no backend (usa authToken do Supabase)
     fetch(`${BACKEND_URL}/api/whatsapp/connect`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${authToken}`,
-        "Content-Type": "application/json"
-      }
-    }).catch(() => {}); // ignora erros do SSE
+      method:  "POST",
+      headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" },
+    }).catch(() => {});
 
-    // Polling a cada 3s para pegar QR e status
-    updateWABadge("connecting");
-    qs("#waConnectBtn").disabled = false;
-
-    clearInterval(waPolling);
-    waPolling = setInterval(async () => {
-      try {
-        const { status, qr, phone } = await api("/api/whatsapp/status");
-        updateWABadge(status, phone);
-        if (qr) showQR(qr);
-        if (status === "connected") {
-          clearInterval(waPolling);
-          hideQR();
-          toast("WhatsApp conectado!");
-          loadWAMessages();
-        }
-        if (status === "disconnected") {
-          clearInterval(waPolling);
-        }
-      } catch (e) { console.warn("WA poll:", e.message); }
-    }, 3000);
-
-    // Para de poller após 90s
-    setTimeout(() => {
-      clearInterval(waPolling);
-      loadWAStatus();
-    }, 90000);
-
+    updateWABanner({ status: "connecting" });
+    startWAPolling();
   } catch (e) {
-    toast("Erro ao conectar: " + e.message, "error");
-    qs("#waConnectBtn").disabled = false;
+    if (errEl) errEl.textContent = "Erro ao conectar: " + e.message;
+    toast("Erro ao conectar.", "error");
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = `<i data-lucide="qr-code"></i> Gerar QR Code`;
+    lucide.createIcons();
   }
 }
 
 async function disconnectWA() {
+  if (!confirm("Desconectar o WhatsApp?")) return;
   clearInterval(waPolling);
-  if (!confirm("Desconectar WhatsApp?")) return;
+  waPolling = null;
   try {
     await api("/api/whatsapp/disconnect", { method: "POST" });
-    updateWABadge("disconnected");
-    hideQR();
+    updateWABanner({ status: "disconnected" });
     toast("WhatsApp desconectado.");
   } catch (e) { toast(e.message, "error"); }
 }
@@ -729,7 +764,9 @@ async function loadWAMessages() {
   try {
     const msgs = await api("/api/whatsapp/messages");
     appData.messages = msgs || [];
-    qs(".wa-messages").innerHTML = msgs.length
+    const el = qs(".wa-messages");
+    if (!el) return;
+    el.innerHTML = msgs.length
       ? msgs.map(m => `
           <div class="activity-item">
             <div class="activity-dot ${m.direction === "in" ? "lead" : "kit"}"></div>
@@ -1634,8 +1671,10 @@ qs("#sidebarOverlay")?.addEventListener("click", closeMobileSidebar);
 qs("#kitSearch")?.addEventListener("input", renderMarketplace);
 qs("#globalSearch")?.addEventListener("input", () => { renderKanban(); renderNetwork(); renderMarketplace(); });
 
-// WhatsApp connect button initial binding
+// WhatsApp buttons
 qs("#waConnectBtn")?.addEventListener("click", connectWA);
+qs("#waDisconnectBtn")?.addEventListener("click", disconnectWA);
+qs("#waRefreshBtn")?.addEventListener("click", loadWAStatus);
 
 // Theme
 qs("#themeToggle").addEventListener("click", () => {
