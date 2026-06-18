@@ -625,13 +625,13 @@ let waPolling = null;
 let waPollingCount = 0;
 
 const WA_STATUS_INFO = {
-  idle:         { icon: "⚫", label: "Agente não iniciado",  color: "#64748b", bg: "var(--surface)" },
-  connecting:   { icon: "🟡", label: "Conectando…",         color: "#b45309", bg: "#fefce8" },
-  qr:           { icon: "📷", label: "Aguardando QR code",  color: "#1d4ed8", bg: "#eff6ff" },
-  connected:    { icon: "🟢", label: "Agente conectado",    color: "#15803d", bg: "#f0fdf4" },
-  disconnected: { icon: "🔴", label: "Desconectado",        color: "#b91c1c", bg: "#fef2f2" },
-  reconnecting: { icon: "🟠", label: "Reconectando…",       color: "#c2410c", bg: "#fff7ed" },
-  error:        { icon: "❌", label: "Erro na conexão",     color: "#b91c1c", bg: "#fef2f2" },
+  idle:         { icon: "⚫", label: "Agente não iniciado",       color: "#64748b", bg: "var(--surface)" },
+  connecting:   { icon: "📷", label: "Aguardando leitura do QR…", color: "#1d4ed8", bg: "#eff6ff" },
+  qr:           { icon: "📷", label: "Aguardando leitura do QR…", color: "#1d4ed8", bg: "#eff6ff" },
+  connected:    { icon: "🟢", label: "Agente conectado",          color: "#15803d", bg: "#f0fdf4" },
+  disconnected: { icon: "🔴", label: "Desconectado",              color: "#b91c1c", bg: "#fef2f2" },
+  reconnecting: { icon: "🟠", label: "Reconectando…",             color: "#c2410c", bg: "#fff7ed" },
+  error:        { icon: "❌", label: "Erro na conexão",           color: "#b91c1c", bg: "#fef2f2" },
 };
 
 async function fetchWAStatus() {
@@ -668,16 +668,23 @@ function updateWABanner(payload) {
     disconnectBtn.style.display = isConnected ? ""     : "none";
   }
 
-  // QR Code — renderiza via api.qrserver.com (sem lib externa)
+  // QR Code — exibe sempre que o backend mandar o campo qr preenchido,
+  // independente do valor exato de status (pode ser "qr", "connecting", etc.)
   const qrContainer = qs("#waQRContainer");
   const qrDisplay   = qs("#waQRDisplay");
   if (qrContainer && qrDisplay) {
-    if (payload.qr && payload.status === "qr") {
+    if (payload.qr) {
       qrContainer.style.display = "";
+      // Renderiza via api.qrserver.com — sem lib externa
+      // O campo qr pode vir como string de dados brutos ou como data URL
+      const qrData = payload.qr.startsWith("data:image")
+        ? payload.qr  // já é uma imagem — usa direto como src
+        : `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payload.qr)}`;
       qrDisplay.innerHTML = `
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payload.qr)}"
+        <img src="${qrData}"
              alt="QR Code WhatsApp" width="220" height="220"
-             style="display:block;border-radius:4px"/>`;
+             style="display:block;border-radius:4px"
+             onerror="this.onerror=null;this.src='https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payload.qr)}'"/>`;
     } else {
       qrContainer.style.display = "none";
       qrDisplay.innerHTML = "";
@@ -707,7 +714,7 @@ function startWAPolling() {
   waPollingCount = 0;
   waPolling = setInterval(async () => {
     waPollingCount++;
-    // Para após ~2,5 min (75 × 2s) ou se saiu da view
+    // Para após ~2,5 min ou se saiu da view
     if (waPollingCount > 75) {
       clearInterval(waPolling);
       waPolling = null;
