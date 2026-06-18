@@ -630,6 +630,108 @@ a { text-decoration: none; }
 .kit-price { font-size: 1.4rem; font-weight: 800; color: var(--leaf); }
 .kit-meta { font-size: 12px; color: var(--muted); }
 .kit-stock { font-size: 12px; color: var(--ink2); font-weight: 500; }
+/* ── KIT CARD melhorado ── */
+.kit-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.kit-own-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--leaf);
+  background: color-mix(in srgb, var(--leaf) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--leaf) 25%, transparent);
+  border-radius: 20px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── MODAL DETALHE KIT ── */
+.modal-lg { max-width: 760px; width: 95vw; }
+.kit-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.kit-detail-left, .kit-detail-right { display: flex; flex-direction: column; gap: 20px; }
+.kit-detail-meta { display: flex; flex-direction: column; gap: 8px; }
+.kit-detail-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink2);
+}
+.kit-detail-meta-item i { width: 14px; height: 14px; color: var(--muted); flex-shrink: 0; }
+.kit-detail-section h4 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.kit-items-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kit-items-list li {
+  font-size: 13px;
+  color: var(--ink);
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.kit-pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.kit-pricing-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  border-bottom: 2px solid var(--border);
+}
+.kit-pricing-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink2);
+}
+.kit-pricing-table tr:last-child td { border-bottom: none; }
+.kit-detail-action { margin-top: auto; }
+.kit-own-msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--leaf);
+  padding: 12px;
+  background: color-mix(in srgb, var(--leaf) 8%, transparent);
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--leaf) 20%, transparent);
+}
+.kit-own-msg i { width: 16px; height: 16px; }
+@media (max-width: 600px) {
+  .kit-detail-grid { grid-template-columns: 1fr; }
+  .modal-lg { max-width: 100%; border-radius: var(--radius) var(--radius) 0 0; }
+}
+
 
 /* ═══════════════════════════════════════════════════════════════
    CHAT
